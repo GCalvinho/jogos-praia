@@ -426,6 +426,25 @@ p { line-height: 1.4; }
 
 .small-note { font-size: .8rem; opacity: .65; }
 
+.field-label { display: block; font-size: .82rem; font-weight: 700; margin: 10px 0 6px; opacity: .8; }
+.text-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 14px;
+  border-radius: 12px;
+  border: 2px solid rgba(0,0,0,0.08);
+  background: var(--white);
+  font-size: .95rem;
+  font-family: inherit;
+  color: inherit;
+}
+.text-input:focus { outline: none; border-color: var(--sea); }
+
+.share-block { margin-top: 10px; padding-top: 10px; border-top: 1px dashed rgba(0,0,0,0.1); }
+.share-block .text-input { margin-bottom: 10px; font-size: .82rem; }
+.qr-wrap { display: flex; justify-content: center; margin-top: 12px; }
+.qr-wrap svg { width: 168px; height: 168px; background: var(--white); border-radius: 12px; padding: 8px; box-shadow: var(--shadow); }
+
 ::selection { background: var(--sun); }
 
 @media (min-width: 480px) {
@@ -464,6 +483,60 @@ p { line-height: 1.4; }
   function stripAccents(s) { return s.normalize('NFD').replace(/[̀-ͯ]/g, ''); }
   function toGrid(s) { return stripAccents(s).toUpperCase().replace(/[^A-Z]/g, ''); }
   function pick(arr, n, rng) { return shuffle(arr, rng).slice(0, n); }
+
+  // -- PRNG determinístico (para desafios de grupo: todos recebem o mesmo puzzle) --
+  function xmur3(str) {
+    var h = 1779033703 ^ str.length;
+    for (var i = 0; i < str.length; i++) {
+      h = Math.imul(h ^ str.charCodeAt(i), 3432918353);
+      h = (h << 13) | (h >>> 19);
+    }
+    return function () {
+      h = Math.imul(h ^ (h >>> 16), 2246822507);
+      h = Math.imul(h ^ (h >>> 13), 3266489909);
+      return (h ^= h >>> 16) >>> 0;
+    };
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      var t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  function seededRng(seedStr) { return mulberry32(xmur3(String(seedStr))()); }
+  function randomSeed() { return Math.random().toString(36).slice(2, 10) + Date.now().toString(36); }
+
+  // -- Codificacao compacta base64url de objetos JSON (para links/QR de partilha) --
+  function b64urlEncode(obj) {
+    var json = JSON.stringify(obj);
+    var bytes = new TextEncoder().encode(json);
+    var bin = '';
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64urlDecode(str) {
+    var b64 = String(str).replace(/-/g, '+').replace(/_/g, '/');
+    while (b64.length % 4) b64 += '=';
+    var bin = atob(b64);
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  // -- Gerador de QR code (qrcode-generator v2.0.4, Kazuhiko Arase, licenca MIT) --
+  // Embutido para permitir gerar QR codes dos links de desafio em grupo sem qualquer
+  // dependencia externa/CDN. Usa-se como: qrcode(0, 'M').addData(url).make().createSvgTag(4, 0)
+  var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],f={},c=function(t,r){o=function(t){for(var r=new Array(t),e=0;e<t;e+=1){r[e]=new Array(t);for(var n=0;n<t;n+=1)r[e][n]=null}return r}(i=4*e+17),l(0,0),l(i-7,0),l(0,i-7),s(),h(),d(t,r),e>=7&&v(t),null==a&&(a=p(e,n,u)),w(a,r)},l=function(t,r){for(var e=-1;e<=7;e+=1)if(!(t+e<=-1||i<=t+e))for(var n=-1;n<=7;n+=1)r+n<=-1||i<=r+n||(o[t+e][r+n]=0<=e&&e<=6&&(0==n||6==n)||0<=n&&n<=6&&(0==e||6==e)||2<=e&&e<=4&&2<=n&&n<=4)},h=function(){for(var t=8;t<i-8;t+=1)null==o[t][6]&&(o[t][6]=t%2==0);for(var r=8;r<i-8;r+=1)null==o[6][r]&&(o[6][r]=r%2==0)},s=function(){for(var t=B.getPatternPosition(e),r=0;r<t.length;r+=1)for(var n=0;n<t.length;n+=1){var i=t[r],a=t[n];if(null==o[i][a])for(var u=-2;u<=2;u+=1)for(var f=-2;f<=2;f+=1)o[i+u][a+f]=-2==u||2==u||-2==f||2==f||0==u&&0==f}},v=function(t){for(var r=B.getBCHTypeNumber(e),n=0;n<18;n+=1){var a=!t&&1==(r>>n&1);o[Math.floor(n/3)][n%3+i-8-3]=a}for(n=0;n<18;n+=1){a=!t&&1==(r>>n&1);o[n%3+i-8-3][Math.floor(n/3)]=a}},d=function(t,r){for(var e=n<<3|r,a=B.getBCHTypeInfo(e),u=0;u<15;u+=1){var f=!t&&1==(a>>u&1);u<6?o[u][8]=f:u<8?o[u+1][8]=f:o[i-15+u][8]=f}for(u=0;u<15;u+=1){f=!t&&1==(a>>u&1);u<8?o[8][i-u-1]=f:u<9?o[8][15-u-1+1]=f:o[8][15-u-1]=f}o[i-8][8]=!t},w=function(t,r){for(var e=-1,n=i-1,a=7,u=0,f=B.getMaskFunction(r),c=i-1;c>0;c-=2)for(6==c&&(c-=1);;){for(var g=0;g<2;g+=1)if(null==o[n][c-g]){var l=!1;u<t.length&&(l=1==(t[u]>>>a&1)),f(n,c-g)&&(l=!l),o[n][c-g]=l,-1==(a-=1)&&(u+=1,a=7)}if((n+=e)<0||i<=n){n-=e,e=-e;break}}},p=function(t,r,e){for(var n=A.getRSBlocks(t,r),o=b(),i=0;i<e.length;i+=1){var a=e[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var u=0;for(i=0;i<n.length;i+=1)u+=n[i].dataCount;if(o.getLengthInBits()>8*u)throw"code length overflow. ("+o.getLengthInBits()+">"+8*u+")";for(o.getLengthInBits()+4<=8*u&&o.put(0,4);o.getLengthInBits()%8!=0;)o.putBit(!1);for(;!(o.getLengthInBits()>=8*u||(o.put(236,8),o.getLengthInBits()>=8*u));)o.put(17,8);return function(t,r){for(var e=0,n=0,o=0,i=new Array(r.length),a=new Array(r.length),u=0;u<r.length;u+=1){var f=r[u].dataCount,c=r[u].totalCount-f;n=Math.max(n,f),o=Math.max(o,c),i[u]=new Array(f);for(var g=0;g<i[u].length;g+=1)i[u][g]=255&t.getBuffer()[g+e];e+=f;var l=B.getErrorCorrectPolynomial(c),h=k(i[u],l.getLength()-1).mod(l);for(a[u]=new Array(l.getLength()-1),g=0;g<a[u].length;g+=1){var s=g+h.getLength()-a[u].length;a[u][g]=s>=0?h.getAt(s):0}}var v=0;for(g=0;g<r.length;g+=1)v+=r[g].totalCount;var d=new Array(v),w=0;for(g=0;g<n;g+=1)for(u=0;u<r.length;u+=1)g<i[u].length&&(d[w]=i[u][g],w+=1);for(g=0;g<o;g+=1)for(u=0;u<r.length;u+=1)g<a[u].length&&(d[w]=a[u][g],w+=1);return d}(o,n)};f.addData=function(t,r){var e=null;switch(r=r||"Byte"){case"Numeric":e=M(t);break;case"Alphanumeric":e=x(t);break;case"Byte":e=m(t);break;case"Kanji":e=L(t);break;default:throw"mode:"+r}u.push(e),a=null},f.isDark=function(t,r){if(t<0||i<=t||r<0||i<=r)throw t+","+r;return o[t][r]},f.getModuleCount=function(){return i},f.make=function(){if(e<1){for(var t=1;t<40;t++){for(var r=A.getRSBlocks(t,n),o=b(),i=0;i<u.length;i++){var a=u[i];o.put(a.getMode(),4),o.put(a.getLength(),B.getLengthInBits(a.getMode(),t)),a.write(o)}var g=0;for(i=0;i<r.length;i++)g+=r[i].dataCount;if(o.getLengthInBits()<=8*g)break}e=t}c(!1,function(){for(var t=0,r=0,e=0;e<8;e+=1){c(!0,e);var n=B.getLostPoint(f);(0==e||t>n)&&(t=n,r=e)}return r}())},f.createTableTag=function(t,r){t=t||2;var e="";e+='<table style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: "+(r=void 0===r?4*t:r)+"px;",e+='">',e+="<tbody>";for(var n=0;n<f.getModuleCount();n+=1){e+="<tr>";for(var o=0;o<f.getModuleCount();o+=1)e+='<td style="',e+=" border-width: 0px; border-style: none;",e+=" border-collapse: collapse;",e+=" padding: 0px; margin: 0px;",e+=" width: "+t+"px;",e+=" height: "+t+"px;",e+=" background-color: ",e+=f.isDark(n,o)?"#000000":"#ffffff",e+=";",e+='"/>';e+="</tr>"}return e+="</tbody>",e+="</table>"},f.createSvgTag=function(t,r,e,n){var o={};"object"==typeof arguments[0]&&(t=(o=arguments[0]).cellSize,r=o.margin,e=o.alt,n=o.title),t=t||2,r=void 0===r?4*t:r,(e="string"==typeof e?{text:e}:e||{}).text=e.text||null,e.id=e.text?e.id||"qrcode-description":null,(n="string"==typeof n?{text:n}:n||{}).text=n.text||null,n.id=n.text?n.id||"qrcode-title":null;var i,a,u,c,g=f.getModuleCount()*t+2*r,l="";for(c="l"+t+",0 0,"+t+" -"+t+",0 0,-"+t+"z ",l+='<svg version="1.1" xmlns="http://www.w3.org/2000/svg"',l+=o.scalable?"":' width="'+g+'px" height="'+g+'px"',l+=' viewBox="0 0 '+g+" "+g+'" ',l+=' preserveAspectRatio="xMinYMin meet"',l+=n.text||e.text?' role="img" aria-labelledby="'+y([n.id,e.id].join(" ").trim())+'"':"",l+=">",l+=n.text?'<title id="'+y(n.id)+'">'+y(n.text)+"</title>":"",l+=e.text?'<description id="'+y(e.id)+'">'+y(e.text)+"</description>":"",l+='<rect width="100%" height="100%" fill="white" cx="0" cy="0"/>',l+='<path d="',a=0;a<f.getModuleCount();a+=1)for(u=a*t+r,i=0;i<f.getModuleCount();i+=1)f.isDark(a,i)&&(l+="M"+(i*t+r)+","+u+c);return l+='" stroke="transparent" fill="black"/>',l+="</svg>"},f.createDataURL=function(t,r){t=t||2,r=void 0===r?4*t:r;var e=f.getModuleCount()*t+2*r,n=r,o=e-r;return I(e,e,function(r,e){if(n<=r&&r<o&&n<=e&&e<o){var i=Math.floor((r-n)/t),a=Math.floor((e-n)/t);return f.isDark(a,i)?0:1}return 1})},f.createImgTag=function(t,r,e){t=t||2,r=void 0===r?4*t:r;var n=f.getModuleCount()*t+2*r,o="";return o+="<img",o+=' src="',o+=f.createDataURL(t,r),o+='"',o+=' width="',o+=n,o+='"',o+=' height="',o+=n,o+='"',e&&(o+=' alt="',o+=y(e),o+='"'),o+="/>"};var y=function(t){for(var r="",e=0;e<t.length;e+=1){var n=t.charAt(e);switch(n){case"<":r+="&lt;";break;case">":r+="&gt;";break;case"&":r+="&amp;";break;case'"':r+="&quot;";break;default:r+=n}}return r};return f.createASCII=function(t,r){if((t=t||1)<2)return function(t){t=void 0===t?2:t;var r,e,n,o,i,a=1*f.getModuleCount()+2*t,u=t,c=a-t,g={"██":"█","█ ":"▀"," █":"▄","  ":" "},l={"██":"▀","█ ":"▀"," █":" ","  ":" "},h="";for(r=0;r<a;r+=2){for(n=Math.floor((r-u)/1),o=Math.floor((r+1-u)/1),e=0;e<a;e+=1)i="█",u<=e&&e<c&&u<=r&&r<c&&f.isDark(n,Math.floor((e-u)/1))&&(i=" "),u<=e&&e<c&&u<=r+1&&r+1<c&&f.isDark(o,Math.floor((e-u)/1))?i+=" ":i+="█",h+=t<1&&r+1>=c?l[i]:g[i];h+="\n"}return a%2&&t>0?h.substring(0,h.length-a-1)+Array(a+1).join("▀"):h.substring(0,h.length-1)}(r);t-=1,r=void 0===r?2*t:r;var e,n,o,i,a=f.getModuleCount()*t+2*r,u=r,c=a-r,g=Array(t+1).join("██"),l=Array(t+1).join("  "),h="",s="";for(e=0;e<a;e+=1){for(o=Math.floor((e-u)/t),s="",n=0;n<a;n+=1)i=1,u<=n&&n<c&&u<=e&&e<c&&f.isDark(o,Math.floor((n-u)/t))&&(i=0),s+=i?g:l;for(o=0;o<t;o+=1)h+=s+"\n"}return h.substring(0,h.length-1)},f.renderTo2dContext=function(t,r){r=r||2;for(var e=f.getModuleCount(),n=0;n<e;n++)for(var o=0;o<e;o++)t.fillStyle=f.isDark(n,o)?"black":"white",t.fillRect(o*r,n*r,r,r)},f};t.stringToBytes=(t.stringToBytesFuncs={default:function(t){for(var r=[],e=0;e<t.length;e+=1){var n=t.charCodeAt(e);r.push(255&n)}return r}}).default,t.createStringToBytes=function(t,r){var e=function(){for(var e=S(t),n=function(){var t=e.read();if(-1==t)throw"eof";return t},o=0,i={};;){var a=e.read();if(-1==a)break;var u=n(),f=n()<<8|n();i[String.fromCharCode(a<<8|u)]=f,o+=1}if(o!=r)throw o+" != "+r;return i}(),n="?".charCodeAt(0);return function(t){for(var r=[],o=0;o<t.length;o+=1){var i=t.charCodeAt(o);if(i<128)r.push(i);else{var a=e[t.charAt(o)];"number"==typeof a?(255&a)==a?r.push(a):(r.push(a>>>8),r.push(255&a)):r.push(n)}}return r}};var r,e,n,o,i,a=1,u=2,f=4,c=8,g={L:1,M:0,Q:3,H:2},l=0,h=1,s=2,v=3,d=4,w=5,p=6,y=7,B=(r=[[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50],[6,30,54],[6,32,58],[6,34,62],[6,26,46,66],[6,26,48,70],[6,26,50,74],[6,30,54,78],[6,30,56,82],[6,30,58,86],[6,34,62,90],[6,28,50,72,94],[6,26,50,74,98],[6,30,54,78,102],[6,28,54,80,106],[6,32,58,84,110],[6,30,58,86,114],[6,34,62,90,118],[6,26,50,74,98,122],[6,30,54,78,102,126],[6,26,52,78,104,130],[6,30,56,82,108,134],[6,34,60,86,112,138],[6,30,58,86,114,142],[6,34,62,90,118,146],[6,30,54,78,102,126,150],[6,24,50,76,102,128,154],[6,28,54,80,106,132,158],[6,32,58,84,110,136,162],[6,26,54,82,110,138,166],[6,30,58,86,114,142,170]],e=1335,n=7973,i=function(t){for(var r=0;0!=t;)r+=1,t>>>=1;return r},(o={}).getBCHTypeInfo=function(t){for(var r=t<<10;i(r)-i(e)>=0;)r^=e<<i(r)-i(e);return 21522^(t<<10|r)},o.getBCHTypeNumber=function(t){for(var r=t<<12;i(r)-i(n)>=0;)r^=n<<i(r)-i(n);return t<<12|r},o.getPatternPosition=function(t){return r[t-1]},o.getMaskFunction=function(t){switch(t){case l:return function(t,r){return(t+r)%2==0};case h:return function(t,r){return t%2==0};case s:return function(t,r){return r%3==0};case v:return function(t,r){return(t+r)%3==0};case d:return function(t,r){return(Math.floor(t/2)+Math.floor(r/3))%2==0};case w:return function(t,r){return t*r%2+t*r%3==0};case p:return function(t,r){return(t*r%2+t*r%3)%2==0};case y:return function(t,r){return(t*r%3+(t+r)%2)%2==0};default:throw"bad maskPattern:"+t}},o.getErrorCorrectPolynomial=function(t){for(var r=k([1],0),e=0;e<t;e+=1)r=r.multiply(k([1,C.gexp(e)],0));return r},o.getLengthInBits=function(t,r){if(1<=r&&r<10)switch(t){case a:return 10;case u:return 9;case f:case c:return 8;default:throw"mode:"+t}else if(r<27)switch(t){case a:return 12;case u:return 11;case f:return 16;case c:return 10;default:throw"mode:"+t}else{if(!(r<41))throw"type:"+r;switch(t){case a:return 14;case u:return 13;case f:return 16;case c:return 12;default:throw"mode:"+t}}},o.getLostPoint=function(t){for(var r=t.getModuleCount(),e=0,n=0;n<r;n+=1)for(var o=0;o<r;o+=1){for(var i=0,a=t.isDark(n,o),u=-1;u<=1;u+=1)if(!(n+u<0||r<=n+u))for(var f=-1;f<=1;f+=1)o+f<0||r<=o+f||0==u&&0==f||a==t.isDark(n+u,o+f)&&(i+=1);i>5&&(e+=3+i-5)}for(n=0;n<r-1;n+=1)for(o=0;o<r-1;o+=1){var c=0;t.isDark(n,o)&&(c+=1),t.isDark(n+1,o)&&(c+=1),t.isDark(n,o+1)&&(c+=1),t.isDark(n+1,o+1)&&(c+=1),0!=c&&4!=c||(e+=3)}for(n=0;n<r;n+=1)for(o=0;o<r-6;o+=1)t.isDark(n,o)&&!t.isDark(n,o+1)&&t.isDark(n,o+2)&&t.isDark(n,o+3)&&t.isDark(n,o+4)&&!t.isDark(n,o+5)&&t.isDark(n,o+6)&&(e+=40);for(o=0;o<r;o+=1)for(n=0;n<r-6;n+=1)t.isDark(n,o)&&!t.isDark(n+1,o)&&t.isDark(n+2,o)&&t.isDark(n+3,o)&&t.isDark(n+4,o)&&!t.isDark(n+5,o)&&t.isDark(n+6,o)&&(e+=40);var g=0;for(o=0;o<r;o+=1)for(n=0;n<r;n+=1)t.isDark(n,o)&&(g+=1);return e+=Math.abs(100*g/r/r-50)/5*10},o),C=function(){for(var t=new Array(256),r=new Array(256),e=0;e<8;e+=1)t[e]=1<<e;for(e=8;e<256;e+=1)t[e]=t[e-4]^t[e-5]^t[e-6]^t[e-8];for(e=0;e<255;e+=1)r[t[e]]=e;var n={glog:function(t){if(t<1)throw"glog("+t+")";return r[t]},gexp:function(r){for(;r<0;)r+=255;for(;r>=256;)r-=255;return t[r]}};return n}();function k(t,r){if(void 0===t.length)throw t.length+"/"+r;var e=function(){for(var e=0;e<t.length&&0==t[e];)e+=1;for(var n=new Array(t.length-e+r),o=0;o<t.length-e;o+=1)n[o]=t[o+e];return n}(),n={getAt:function(t){return e[t]},getLength:function(){return e.length},multiply:function(t){for(var r=new Array(n.getLength()+t.getLength()-1),e=0;e<n.getLength();e+=1)for(var o=0;o<t.getLength();o+=1)r[e+o]^=C.gexp(C.glog(n.getAt(e))+C.glog(t.getAt(o)));return k(r,0)},mod:function(t){if(n.getLength()-t.getLength()<0)return n;for(var r=C.glog(n.getAt(0))-C.glog(t.getAt(0)),e=new Array(n.getLength()),o=0;o<n.getLength();o+=1)e[o]=n.getAt(o);for(o=0;o<t.getLength();o+=1)e[o]^=C.gexp(C.glog(t.getAt(o))+r);return k(e,0).mod(t)}};return n}var A=function(){var t=[[1,26,19],[1,26,16],[1,26,13],[1,26,9],[1,44,34],[1,44,28],[1,44,22],[1,44,16],[1,70,55],[1,70,44],[2,35,17],[2,35,13],[1,100,80],[2,50,32],[2,50,24],[4,25,9],[1,134,108],[2,67,43],[2,33,15,2,34,16],[2,33,11,2,34,12],[2,86,68],[4,43,27],[4,43,19],[4,43,15],[2,98,78],[4,49,31],[2,32,14,4,33,15],[4,39,13,1,40,14],[2,121,97],[2,60,38,2,61,39],[4,40,18,2,41,19],[4,40,14,2,41,15],[2,146,116],[3,58,36,2,59,37],[4,36,16,4,37,17],[4,36,12,4,37,13],[2,86,68,2,87,69],[4,69,43,1,70,44],[6,43,19,2,44,20],[6,43,15,2,44,16],[4,101,81],[1,80,50,4,81,51],[4,50,22,4,51,23],[3,36,12,8,37,13],[2,116,92,2,117,93],[6,58,36,2,59,37],[4,46,20,6,47,21],[7,42,14,4,43,15],[4,133,107],[8,59,37,1,60,38],[8,44,20,4,45,21],[12,33,11,4,34,12],[3,145,115,1,146,116],[4,64,40,5,65,41],[11,36,16,5,37,17],[11,36,12,5,37,13],[5,109,87,1,110,88],[5,65,41,5,66,42],[5,54,24,7,55,25],[11,36,12,7,37,13],[5,122,98,1,123,99],[7,73,45,3,74,46],[15,43,19,2,44,20],[3,45,15,13,46,16],[1,135,107,5,136,108],[10,74,46,1,75,47],[1,50,22,15,51,23],[2,42,14,17,43,15],[5,150,120,1,151,121],[9,69,43,4,70,44],[17,50,22,1,51,23],[2,42,14,19,43,15],[3,141,113,4,142,114],[3,70,44,11,71,45],[17,47,21,4,48,22],[9,39,13,16,40,14],[3,135,107,5,136,108],[3,67,41,13,68,42],[15,54,24,5,55,25],[15,43,15,10,44,16],[4,144,116,4,145,117],[17,68,42],[17,50,22,6,51,23],[19,46,16,6,47,17],[2,139,111,7,140,112],[17,74,46],[7,54,24,16,55,25],[34,37,13],[4,151,121,5,152,122],[4,75,47,14,76,48],[11,54,24,14,55,25],[16,45,15,14,46,16],[6,147,117,4,148,118],[6,73,45,14,74,46],[11,54,24,16,55,25],[30,46,16,2,47,17],[8,132,106,4,133,107],[8,75,47,13,76,48],[7,54,24,22,55,25],[22,45,15,13,46,16],[10,142,114,2,143,115],[19,74,46,4,75,47],[28,50,22,6,51,23],[33,46,16,4,47,17],[8,152,122,4,153,123],[22,73,45,3,74,46],[8,53,23,26,54,24],[12,45,15,28,46,16],[3,147,117,10,148,118],[3,73,45,23,74,46],[4,54,24,31,55,25],[11,45,15,31,46,16],[7,146,116,7,147,117],[21,73,45,7,74,46],[1,53,23,37,54,24],[19,45,15,26,46,16],[5,145,115,10,146,116],[19,75,47,10,76,48],[15,54,24,25,55,25],[23,45,15,25,46,16],[13,145,115,3,146,116],[2,74,46,29,75,47],[42,54,24,1,55,25],[23,45,15,28,46,16],[17,145,115],[10,74,46,23,75,47],[10,54,24,35,55,25],[19,45,15,35,46,16],[17,145,115,1,146,116],[14,74,46,21,75,47],[29,54,24,19,55,25],[11,45,15,46,46,16],[13,145,115,6,146,116],[14,74,46,23,75,47],[44,54,24,7,55,25],[59,46,16,1,47,17],[12,151,121,7,152,122],[12,75,47,26,76,48],[39,54,24,14,55,25],[22,45,15,41,46,16],[6,151,121,14,152,122],[6,75,47,34,76,48],[46,54,24,10,55,25],[2,45,15,64,46,16],[17,152,122,4,153,123],[29,74,46,14,75,47],[49,54,24,10,55,25],[24,45,15,46,46,16],[4,152,122,18,153,123],[13,74,46,32,75,47],[48,54,24,14,55,25],[42,45,15,32,46,16],[20,147,117,4,148,118],[40,75,47,7,76,48],[43,54,24,22,55,25],[10,45,15,67,46,16],[19,148,118,6,149,119],[18,75,47,31,76,48],[34,54,24,34,55,25],[20,45,15,61,46,16]],r=function(t,r){var e={};return e.totalCount=t,e.dataCount=r,e},e={};return e.getRSBlocks=function(e,n){var o=function(r,e){switch(e){case g.L:return t[4*(r-1)+0];case g.M:return t[4*(r-1)+1];case g.Q:return t[4*(r-1)+2];case g.H:return t[4*(r-1)+3];default:return}}(e,n);if(void 0===o)throw"bad rs block @ typeNumber:"+e+"/errorCorrectionLevel:"+n;for(var i=o.length/3,a=[],u=0;u<i;u+=1)for(var f=o[3*u+0],c=o[3*u+1],l=o[3*u+2],h=0;h<f;h+=1)a.push(r(c,l));return a},e}(),b=function(){var t=[],r=0,e={getBuffer:function(){return t},getAt:function(r){var e=Math.floor(r/8);return 1==(t[e]>>>7-r%8&1)},put:function(t,r){for(var n=0;n<r;n+=1)e.putBit(1==(t>>>r-n-1&1))},getLengthInBits:function(){return r},putBit:function(e){var n=Math.floor(r/8);t.length<=n&&t.push(0),e&&(t[n]|=128>>>r%8),r+=1}};return e},M=function(t){var r=a,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+2<r.length;)t.put(o(r.substring(n,n+3)),10),n+=3;n<r.length&&(r.length-n==1?t.put(o(r.substring(n,n+1)),4):r.length-n==2&&t.put(o(r.substring(n,n+2)),7))}},o=function(t){for(var r=0,e=0;e<t.length;e+=1)r=10*r+i(t.charAt(e));return r},i=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);throw"illegal char :"+t};return n},x=function(t){var r=u,e=t,n={getMode:function(){return r},getLength:function(t){return e.length},write:function(t){for(var r=e,n=0;n+1<r.length;)t.put(45*o(r.charAt(n))+o(r.charAt(n+1)),11),n+=2;n<r.length&&t.put(o(r.charAt(n)),6)}},o=function(t){if("0"<=t&&t<="9")return t.charCodeAt(0)-"0".charCodeAt(0);if("A"<=t&&t<="Z")return t.charCodeAt(0)-"A".charCodeAt(0)+10;switch(t){case" ":return 36;case"$":return 37;case"%":return 38;case"*":return 39;case"+":return 40;case"-":return 41;case".":return 42;case"/":return 43;case":":return 44;default:throw"illegal char :"+t}};return n},m=function(r){var e=f,n=t.stringToBytes(r),o={getMode:function(){return e},getLength:function(t){return n.length},write:function(t){for(var r=0;r<n.length;r+=1)t.put(n[r],8)}};return o},L=function(r){var e=c,n=t.stringToBytesFuncs.SJIS;if(!n)throw"sjis not supported.";!function(){var t=n("友");if(2!=t.length||38726!=(t[0]<<8|t[1]))throw"sjis not supported."}();var o=n(r),i={getMode:function(){return e},getLength:function(t){return~~(o.length/2)},write:function(t){for(var r=o,e=0;e+1<r.length;){var n=(255&r[e])<<8|255&r[e+1];if(33088<=n&&n<=40956)n-=33088;else{if(!(57408<=n&&n<=60351))throw"illegal char at "+(e+1)+"/"+n;n-=49472}n=192*(n>>>8&255)+(255&n),t.put(n,13),e+=2}if(e<r.length)throw"illegal char at "+(e+1)}};return i},D=function(){var t=[],r={writeByte:function(r){t.push(255&r)},writeShort:function(t){r.writeByte(t),r.writeByte(t>>>8)},writeBytes:function(t,e,n){e=e||0,n=n||t.length;for(var o=0;o<n;o+=1)r.writeByte(t[o+e])},writeString:function(t){for(var e=0;e<t.length;e+=1)r.writeByte(t.charCodeAt(e))},toByteArray:function(){return t},toString:function(){var r="";r+="[";for(var e=0;e<t.length;e+=1)e>0&&(r+=","),r+=t[e];return r+="]"}};return r},S=function(t){var r=t,e=0,n=0,o=0,i={read:function(){for(;o<8;){if(e>=r.length){if(0==o)return-1;throw"unexpected end of file./"+o}var t=r.charAt(e);if(e+=1,"="==t)return o=0,-1;t.match(/^\s$/)||(n=n<<6|a(t.charCodeAt(0)),o+=6)}var i=n>>>o-8&255;return o-=8,i}},a=function(t){if(65<=t&&t<=90)return t-65;if(97<=t&&t<=122)return t-97+26;if(48<=t&&t<=57)return t-48+52;if(43==t)return 62;if(47==t)return 63;throw"c:"+t};return i},I=function(t,r,e){for(var n=function(t,r){var e=t,n=r,o=new Array(t*r),i={setPixel:function(t,r,n){o[r*e+t]=n},write:function(t){t.writeString("GIF87a"),t.writeShort(e),t.writeShort(n),t.writeByte(128),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(0),t.writeByte(255),t.writeByte(255),t.writeByte(255),t.writeString(","),t.writeShort(0),t.writeShort(0),t.writeShort(e),t.writeShort(n),t.writeByte(0);var r=a(2);t.writeByte(2);for(var o=0;r.length-o>255;)t.writeByte(255),t.writeBytes(r,o,255),o+=255;t.writeByte(r.length-o),t.writeBytes(r,o,r.length-o),t.writeByte(0),t.writeString(";")}},a=function(t){for(var r=1<<t,e=1+(1<<t),n=t+1,i=u(),a=0;a<r;a+=1)i.add(String.fromCharCode(a));i.add(String.fromCharCode(r)),i.add(String.fromCharCode(e));var f,c,g,l=D(),h=(f=l,c=0,g=0,{write:function(t,r){if(t>>>r!=0)throw"length over";for(;c+r>=8;)f.writeByte(255&(t<<c|g)),r-=8-c,t>>>=8-c,g=0,c=0;g|=t<<c,c+=r},flush:function(){c>0&&f.writeByte(g)}});h.write(r,n);var s=0,v=String.fromCharCode(o[s]);for(s+=1;s<o.length;){var d=String.fromCharCode(o[s]);s+=1,i.contains(v+d)?v+=d:(h.write(i.indexOf(v),n),i.size()<4095&&(i.size()==1<<n&&(n+=1),i.add(v+d)),v=d)}return h.write(i.indexOf(v),n),h.write(e,n),h.flush(),l.toByteArray()},u=function(){var t={},r=0,e={add:function(n){if(e.contains(n))throw"dup key:"+n;t[n]=r,r+=1},size:function(){return r},indexOf:function(r){return t[r]},contains:function(r){return void 0!==t[r]}};return e};return i}(t,r),o=0;o<r;o+=1)for(var i=0;i<t;i+=1)n.setPixel(i,o,e(i,o));var a=D();n.write(a);for(var u=function(){var t=0,r=0,e=0,n="",o={},i=function(t){n+=String.fromCharCode(a(63&t))},a=function(t){if(t<0);else{if(t<26)return 65+t;if(t<52)return t-26+97;if(t<62)return t-52+48;if(62==t)return 43;if(63==t)return 47}throw"n:"+t};return o.writeByte=function(n){for(t=t<<8|255&n,r+=8,e+=1;r>=6;)i(t>>>r-6),r-=6},o.flush=function(){if(r>0&&(i(t<<6-r),t=0,r=0),e%3!=0)for(var o=3-e%3,a=0;a<o;a+=1)n+="="},o.toString=function(){return n},o}(),f=a.toByteArray(),c=0;c<f.length;c+=1)u.writeByte(f[c]);return u.flush(),"data:image/gif;base64,"+u};return t}();qrcode.stringToBytesFuncs["UTF-8"]=function(t){return function(t){for(var r=[],e=0;e<t.length;e++){var n=t.charCodeAt(e);n<128?r.push(n):n<2048?r.push(192|n>>6,128|63&n):n<55296||n>=57344?r.push(224|n>>12,128|n>>6&63,128|63&n):(e++,n=65536+((1023&n)<<10|1023&t.charCodeAt(e)),r.push(240|n>>18,128|n>>12&63,128|n>>6&63,128|63&n))}return r}(t)};
+  function makeQrSvg(text, cellPx) {
+    try {
+      var qr = qrcode(0, 'M');
+      qr.addData(text, 'Byte');
+      qr.make();
+      return qr.createSvgTag(cellPx || 4, 0);
+    } catch (e) { return null; }
+  }
   function el(tag, cls, text) {
     var e = document.createElement(tag);
     if (cls) e.className = cls;
@@ -483,83 +556,406 @@ p { line-height: 1.4; }
     toastTimer = setTimeout(function () { t.classList.remove('show'); }, 1800);
   }
 
-  /* ---------------------------- Dados: palavras de praia ---------------------------- */
-  var RAW_WORDS = [
+  /* ---------------------------- Dados: bancos de palavras por topico ---------------------------- */
+  var WORD_TOPICS = {};
+  WORD_TOPICS.praia = [
     { display: 'Praia', clue: 'Areal junto ao mar onde se apanha sol' },
-    { display: 'Areia', clue: 'Cobre o chao da praia, fina e dourada' },
-    { display: 'Mar', clue: 'Grande massa de agua salgada' },
+    { display: 'Areia', clue: 'Cobre o chão da praia, fina e dourada' },
+    { display: 'Mar', clue: 'Grande massa de água salgada' },
     { display: 'Onda', clue: 'Move-se e rebenta na areia' },
-    { display: 'Sol', clue: 'Brilha no ceu e bronzeia a pele' },
+    { display: 'Sol', clue: 'Brilha no céu e bronzeia a pele' },
     { display: 'Toalha', clue: 'Estende-se na areia para apanhar sol' },
-    { display: 'Chapeu', clue: 'Protege a cabeca do sol' },
-    { display: 'Boia', clue: 'Ajuda a flutuar na agua' },
+    { display: 'Chapéu', clue: 'Protege a cabeça do sol' },
+    { display: 'Boia', clue: 'Ajuda a flutuar na água' },
     { display: 'Concha', clue: 'Encontra-se na areia, veio do mar' },
-    { display: 'Caranguejo', clue: 'Anda de lado e tem pincas' },
-    { display: 'Guardasol', clue: 'Da sombra na areia' },
-    { display: 'Oculos', clue: 'De sol, protegem os olhos' },
-    { display: 'Tubarao', clue: 'Peixe grande e temido do oceano' },
-    { display: 'Golfinho', clue: 'Mamifero marinho muito inteligente' },
+    { display: 'Caranguejo', clue: 'Anda de lado e tem pinças' },
+    { display: 'Guarda-sol', clue: 'Dá sombra na areia' },
+    { display: 'Óculos de sol', clue: 'Protegem os olhos da luz forte' },
+    { display: 'Tubarão', clue: 'Peixe grande e temido do oceano' },
+    { display: 'Golfinho', clue: 'Mamífero marinho muito inteligente' },
     { display: 'Veleiro', clue: 'Barco movido a vento' },
-    { display: 'Farol', clue: 'Guia os barcos a noite' },
+    { display: 'Farol', clue: 'Guia os barcos à noite' },
     { display: 'Rocha', clue: 'Pedra grande junto ao mar' },
-    { display: 'Mare', clue: 'Sobe e desce ao longo do dia' },
-    { display: 'Verao', clue: 'Estacao quente do ano' },
+    { display: 'Maré', clue: 'Sobe e desce ao longo do dia' },
+    { display: 'Verão', clue: 'Estação quente do ano' },
     { display: 'Gaivota', clue: 'Ave branca comum na praia' },
-    { display: 'Sandalia', clue: 'Calcado leve para a praia' },
-    { display: 'Gelado', clue: 'Doce gelado, delicia do verao' },
-    { display: 'Canoa', clue: 'Pequena embarcacao a remo' },
+    { display: 'Sandália', clue: 'Calçado leve para a praia' },
+    { display: 'Gelado', clue: 'Doce gelado, delícia do verão' },
+    { display: 'Canoa', clue: 'Pequena embarcação a remo' },
     { display: 'Surf', clue: 'Desporto de deslizar sobre ondas' },
     { display: 'Voleibol', clue: 'Jogo de praia com rede e bola' },
-    { display: 'Palmeira', clue: 'Arvore tropical com folhas grandes' },
-    { display: 'Coqueiro', clue: 'Palmeira que da coco' },
-    { display: 'Barco', clue: 'Embarcacao para navegar' },
-    { display: 'Peixe', clue: 'Animal que vive na agua e tem escamas' },
-    { display: 'Polvo', clue: 'Molusco com oito tentaculos' },
+    { display: 'Palmeira', clue: 'Árvore tropical com folhas grandes' },
+    { display: 'Coqueiro', clue: 'Palmeira que dá coco' },
+    { display: 'Barco', clue: 'Embarcação para navegar' },
+    { display: 'Peixe', clue: 'Animal que vive na água e tem escamas' },
+    { display: 'Polvo', clue: 'Molusco com oito tentáculos' },
     { display: 'Alga', clue: 'Planta marinha verde ou castanha' },
     { display: 'Duna', clue: 'Monte de areia formado pelo vento' },
     { display: 'Vento', clue: 'Ar em movimento, bom para veleiros' },
-    { display: 'Cadeira', clue: 'De praia, para descansar ao sol' },
+    { display: 'Cadeira de praia', clue: 'Para descansar ao sol' },
     { display: 'Bronzeador', clue: 'Creme que protege e bronzeia a pele' },
     { display: 'Costa', clue: 'Linha onde a terra encontra o mar' },
-    { display: 'Balde', clue: 'Usa-se com a pa para construir na areia' },
+    { display: 'Balde', clue: 'Usa-se com a pá para construir na areia' },
     { display: 'Marisco', clue: 'Animal marinho com concha, bom para comer' },
-    { display: 'Piscina', clue: 'Tanque de agua para nadar' },
-    { display: 'Recife', clue: 'Formacao rochosa ou coral debaixo de agua' },
+    { display: 'Piscina', clue: 'Tanque de água para nadar' },
+    { display: 'Recife', clue: 'Formação rochosa ou coral debaixo de água' },
     { display: 'Espuma', clue: 'Branca, forma-se quando a onda rebenta' },
+    { display: 'Tartaruga', clue: 'Réptil marinho de casco duro que põe ovos na areia' },
+    { display: 'Alforreca', clue: 'Animal gelatinoso do mar que pode picar' },
+    { display: 'Búzio', clue: 'Concha em espiral onde se ouve o mar' },
+    { display: 'Lagosta', clue: 'Crustáceo marinho com grandes antenas' },
+    { display: 'Camarão', clue: 'Pequeno crustáceo muito apreciado à mesa' },
+    { display: 'Enguia', clue: 'Peixe comprido parecido com uma cobra' },
+    { display: 'Sardinha', clue: 'Peixe pequeno, estrela dos arraiais de verão' },
+    { display: 'Foca', clue: 'Mamífero marinho que vive em costas frias' },
+    { display: 'Baleia', clue: 'O maior animal do oceano' },
+    { display: 'Coral', clue: 'Forma recifes coloridos debaixo de água' },
+    { display: 'Estrela do mar', clue: 'Animal marinho em forma de estrela' },
+    { display: 'Ouriço do mar', clue: 'Bola cheia de espinhos no fundo do mar' },
+    { display: 'Choco', clue: 'Molusco parecido com a lula, liberta tinta' },
+    { display: 'Chinelos', clue: 'Calçado simples para andar na areia quente' },
+    { display: 'Fato de banho', clue: 'Roupa usada para nadar' },
+    { display: 'Prancha', clue: 'Usa-se em pé para apanhar ondas' },
+    { display: 'Remo', clue: 'Usa-se aos pares para mover um barco a remo' },
+    { display: 'Colchão insuflável', clue: 'Enche-se de ar para boiar na água' },
+    { display: 'Mergulho', clue: 'Descer debaixo de água para explorar' },
+    { display: 'Máscara de mergulho', clue: 'Cobre os olhos e o nariz debaixo de água' },
+    { display: 'Boné', clue: 'Protege a cabeça e os olhos do sol' },
+    { display: 'Espreguiçadeira', clue: 'Cadeira reclinável para apanhar sol' },
+    { display: 'Brisa', clue: 'Vento suave e agradável junto ao mar' },
+    { display: 'Nuvem', clue: 'Flutua no céu, às vezes tapa o sol' },
+    { display: 'Arco-íris', clue: 'Aparece no céu depois da chuva, com várias cores' },
+    { display: 'Pôr do sol', clue: 'Momento em que o sol desaparece no horizonte' },
+    { display: 'Horizonte', clue: 'Linha onde o mar parece encontrar o céu' },
+    { display: 'Maresia', clue: 'Cheiro característico do ar junto ao mar' },
+    { display: 'Sombra', clue: 'Refúgio do calor debaixo do guarda-sol' },
+    { display: 'Baía', clue: 'Recorte da costa onde o mar entra na terra' },
+    { display: 'Ilha', clue: 'Terra rodeada de água por todos os lados' },
+    { display: 'Península', clue: 'Terra rodeada de água exceto por um lado' },
+    { display: 'Lagoa', clue: 'Massa de água calma perto ou ligada ao mar' },
+    { display: 'Falésia', clue: 'Arriba rochosa e alta junto ao mar' },
+    { display: 'Molhe', clue: 'Construção de pedra que protege o porto' },
+    { display: 'Sumo natural', clue: 'Bebida fresca feita de fruta espremida' },
+    { display: 'Melancia', clue: 'Fruta grande, vermelha por dentro, típica do verão' },
+    { display: 'Queimadura solar', clue: 'Pele vermelha por apanhar sol a mais' },
+    { display: 'Nadadeira', clue: 'Usa-se nos pés para nadar mais depressa' },
+    { display: 'Bóia de braço', clue: 'Ajuda as crianças a flutuar nos braços' },
+    { display: 'Snorkel', clue: 'Tubo que permite respirar à superfície da água' },
+    { display: 'Windsurf', clue: 'Desporto que combina surf e vela' },
+    { display: 'Kitesurf', clue: 'Desporto puxado por uma pipa gigante sobre a água' },
+    { display: 'Pescador', clue: 'Pessoa que apanha peixe no mar' },
+    { display: 'Rede de pesca', clue: 'Usa-se para apanhar peixe' },
+    { display: 'Cais', clue: 'Local onde os barcos atracam' },
+    { display: 'Boia salva-vidas', clue: 'Lançada para ajudar quem se afoga' },
+    { display: 'Nadador salvador', clue: 'Vigia os banhistas e presta socorro' },
+    { display: 'Castelo de areia', clue: 'Constrói-se na praia com balde e pá' },
   ];
-  RAW_WORDS.forEach(function (w) { w.grid = toGrid(w.display); });
 
-  var CROSSWORD_ENTRIES = RAW_WORDS.map(function (w) {
-    return { word: w.grid, clue: w.clue, display: w.display };
+  WORD_TOPICS.animais = [
+    { display: 'Leão', clue: 'Conhecido como o rei da selva, o macho tem juba' },
+    { display: 'Tigre', clue: 'Felino às riscas, o maior do mundo' },
+    { display: 'Elefante', clue: 'Maior mamífero terrestre, tem tromba' },
+    { display: 'Girafa', clue: 'Mamífero de pescoço muito comprido' },
+    { display: 'Zebra', clue: 'Parece um cavalo, mas tem riscas pretas e brancas' },
+    { display: 'Rinoceronte', clue: 'Mamífero grande com um ou dois cornos no nariz' },
+    { display: 'Hipopótamo', clue: 'Passa grande parte do dia em rios e lagos de África' },
+    { display: 'Panda', clue: 'Urso preto e branco que se alimenta de bambu' },
+    { display: 'Canguru', clue: 'Marsupial australiano que salta com as patas traseiras' },
+    { display: 'Coala', clue: 'Marsupial que vive em eucaliptos, na Austrália' },
+    { display: 'Lobo', clue: 'Antepassado selvagem do cão' },
+    { display: 'Raposa', clue: 'Canídeo astuto, de focinho fino e cauda peluda' },
+    { display: 'Urso', clue: 'Mamífero grande e peludo que hiberna no inverno' },
+    { display: 'Águia', clue: 'Ave de rapina com visão muito apurada' },
+    { display: 'Coruja', clue: 'Ave de rapina noturna, de grandes olhos' },
+    { display: 'Pinguim', clue: 'Ave que não voa, vive em climas frios e nada muito bem' },
+    { display: 'Avestruz', clue: 'A maior ave do mundo, não voa mas corre muito depressa' },
+    { display: 'Crocodilo', clue: 'Réptil grande que vive em rios e pântanos' },
+    { display: 'Camaleão', clue: 'Réptil que muda de cor para se camuflar' },
+    { display: 'Morcego', clue: 'Único mamífero capaz de voar' },
+    { display: 'Esquilo', clue: 'Pequeno roedor de cauda peluda que guarda frutos secos' },
+    { display: 'Castor', clue: 'Roedor que constrói represas com troncos e ramos' },
+    { display: 'Chimpanzé', clue: 'Primata muito próximo geneticamente do ser humano' },
+    { display: 'Gorila', clue: 'O maior primata do mundo' },
+    { display: 'Cavalo', clue: 'Animal usado para montar e puxar carroças' },
+    { display: 'Ovelha', clue: 'Dá lã e faz "bééé"' },
+    { display: 'Cabra', clue: 'Trepa em rochas com muita facilidade' },
+    { display: 'Galinha', clue: 'Ave de capoeira que põe ovos' },
+    { display: 'Formiga', clue: 'Inseto social que vive em colónias muito organizadas' },
+    { display: 'Abelha', clue: 'Inseto que produz mel e poliniza flores' },
+    { display: 'Borboleta', clue: 'Inseto colorido que nasce de uma lagarta' },
+    { display: 'Cobra', clue: 'Réptil sem patas que se desloca a rastejar' },
+  ];
+
+  WORD_TOPICS.profissoes = [
+    { display: 'Médico', clue: 'Trata doentes e faz diagnósticos' },
+    { display: 'Enfermeiro', clue: 'Cuida de doentes em hospitais e centros de saúde' },
+    { display: 'Professor', clue: 'Ensina alunos numa escola' },
+    { display: 'Bombeiro', clue: 'Apaga incêndios e socorre pessoas em emergências' },
+    { display: 'Polícia', clue: 'Mantém a ordem e a segurança pública' },
+    { display: 'Advogado', clue: 'Defende os interesses de clientes em tribunal' },
+    { display: 'Juiz', clue: 'Decide as sentenças num tribunal' },
+    { display: 'Engenheiro', clue: 'Projeta pontes, máquinas ou edifícios' },
+    { display: 'Arquiteto', clue: 'Desenha a planta de um edifício antes de ser construído' },
+    { display: 'Cozinheiro', clue: 'Prepara refeições num restaurante' },
+    { display: 'Padeiro', clue: 'Faz pão fresco todos os dias' },
+    { display: 'Carpinteiro', clue: 'Trabalha a madeira para fazer móveis' },
+    { display: 'Canalizador', clue: 'Repara canos e torneiras com fugas de água' },
+    { display: 'Eletricista', clue: 'Instala e repara sistemas elétricos' },
+    { display: 'Pintor', clue: 'Pinta paredes de casas ou quadros de arte' },
+    { display: 'Jardineiro', clue: 'Cuida de plantas, relvados e jardins' },
+    { display: 'Agricultor', clue: 'Cultiva a terra para produzir alimentos' },
+    { display: 'Veterinário', clue: 'Trata da saúde dos animais' },
+    { display: 'Dentista', clue: 'Cuida dos dentes e da saúde oral dos pacientes' },
+    { display: 'Farmacêutico', clue: 'Vende e explica medicamentos numa farmácia' },
+    { display: 'Piloto', clue: 'Conduz aviões' },
+    { display: 'Motorista', clue: 'Conduz veículos para transportar pessoas ou cargas' },
+    { display: 'Marinheiro', clue: 'Trabalha a bordo de um navio' },
+    { display: 'Astronauta', clue: 'Viaja e trabalha no espaço' },
+    { display: 'Jornalista', clue: 'Investiga factos e escreve ou reporta notícias' },
+    { display: 'Escritor', clue: 'Cria livros e histórias' },
+    { display: 'Cantor', clue: 'Interpreta músicas ao vivo ou em estúdio' },
+    { display: 'Ator', clue: 'Interpreta personagens em filmes ou peças de teatro' },
+    { display: 'Bailarino', clue: 'Dança de forma profissional' },
+    { display: 'Fotógrafo', clue: 'Tira fotografias de forma profissional' },
+    { display: 'Cabeleireiro', clue: 'Corta e trata do cabelo dos clientes' },
+    { display: 'Contabilista', clue: 'Gere as contas e finanças de uma empresa' },
+    { display: 'Programador', clue: 'Escreve código para criar software' },
+  ];
+
+  WORD_TOPICS.paises = [
+    { display: 'Portugal', clue: 'País ibérico com capital em Lisboa' },
+    { display: 'Espanha', clue: 'País vizinho de Portugal, capital Madrid' },
+    { display: 'França', clue: 'País europeu conhecido pela Torre Eiffel' },
+    { display: 'Itália', clue: 'País com forma de bota, capital Roma' },
+    { display: 'Alemanha', clue: 'País europeu com capital em Berlim' },
+    { display: 'Reino Unido', clue: 'País insular europeu com capital em Londres' },
+    { display: 'Irlanda', clue: 'Ilha europeia conhecida pelo trevo e pela cor verde' },
+    { display: 'Holanda', clue: 'País europeu famoso pelas tulipas e pelos moinhos' },
+    { display: 'Bélgica', clue: 'País europeu conhecido pelo chocolate, capital Bruxelas' },
+    { display: 'Suíça', clue: 'País europeu neutro, famoso pelos Alpes e relógios' },
+    { display: 'Grécia', clue: 'Berço da civilização ocidental, capital Atenas' },
+    { display: 'Rússia', clue: 'O maior país do mundo em área' },
+    { display: 'China', clue: 'País mais populoso da Ásia, capital Pequim' },
+    { display: 'Japão', clue: 'Arquipélago asiático conhecido como "terra do sol nascente"' },
+    { display: 'Índia', clue: 'País mais populoso do mundo, capital Nova Deli' },
+    { display: 'Brasil', clue: 'Maior país da América do Sul, capital Brasília' },
+    { display: 'Argentina', clue: 'País sul-americano famoso pelo tango e pelo futebol' },
+    { display: 'México', clue: 'País norte-americano conhecido pelas pirâmides maias e astecas' },
+    { display: 'Canadá', clue: 'Segundo maior país do mundo em área, a norte dos EUA' },
+    { display: 'Estados Unidos', clue: 'País norte-americano com capital em Washington' },
+    { display: 'Austrália', clue: 'País-continente no hemisfério sul, capital Camberra' },
+    { display: 'Egito', clue: 'País africano das pirâmides e do rio Nilo' },
+    { display: 'Marrocos', clue: 'País do norte de África, perto de Espanha' },
+    { display: 'Angola', clue: 'País africano de língua portuguesa, capital Luanda' },
+    { display: 'Moçambique', clue: 'País africano de língua portuguesa, na costa do Índico' },
+    { display: 'Cabo Verde', clue: 'Arquipélago africano de língua portuguesa' },
+    { display: 'Turquia', clue: 'País entre a Europa e a Ásia, capital Ancara' },
+    { display: 'Suécia', clue: 'País escandinavo, capital Estocolmo' },
+    { display: 'Noruega', clue: 'País escandinavo famoso pelos fiordes' },
+    { display: 'Islândia', clue: 'Ilha nórdica de vulcões e géiseres' },
+    { display: 'Polónia', clue: 'País da Europa Central, capital Varsóvia' },
+  ];
+
+  WORD_TOPICS.cidades = [
+    { display: 'Lisboa', clue: 'Capital de Portugal' },
+    { display: 'Porto', clue: 'Segunda maior cidade de Portugal, famosa pelo vinho' },
+    { display: 'Madrid', clue: 'Capital de Espanha' },
+    { display: 'Barcelona', clue: 'Cidade espanhola da Sagrada Família' },
+    { display: 'Paris', clue: 'Capital de França, cidade da Torre Eiffel' },
+    { display: 'Londres', clue: 'Capital do Reino Unido, tem o relógio Big Ben' },
+    { display: 'Roma', clue: 'Capital de Itália, cidade do Coliseu' },
+    { display: 'Veneza', clue: 'Cidade italiana construída sobre canais' },
+    { display: 'Berlim', clue: 'Capital da Alemanha' },
+    { display: 'Amesterdão', clue: 'Capital dos Países Baixos, cidade dos canais' },
+    { display: 'Atenas', clue: 'Capital da Grécia, berço da democracia' },
+    { display: 'Nova Iorque', clue: 'Cidade dos arranha-céus e da Estátua da Liberdade' },
+    { display: 'Rio de Janeiro', clue: 'Cidade brasileira do Cristo Redentor' },
+    { display: 'São Paulo', clue: 'Maior cidade do Brasil' },
+    { display: 'Tóquio', clue: 'Capital do Japão' },
+    { display: 'Pequim', clue: 'Capital da China' },
+    { display: 'Moscovo', clue: 'Capital da Rússia' },
+    { display: 'Istambul', clue: 'Cidade turca situada entre dois continentes' },
+    { display: 'Dubai', clue: 'Cidade dos arranha-céus no golfo Pérsico' },
+    { display: 'Cairo', clue: 'Capital do Egito, perto das pirâmides' },
+    { display: 'Sydney', clue: 'Cidade australiana da famosa casa de ópera' },
+    { display: 'Toronto', clue: 'Maior cidade do Canadá' },
+    { display: 'Dublin', clue: 'Capital da Irlanda' },
+    { display: 'Estocolmo', clue: 'Capital da Suécia' },
+    { display: 'Copenhaga', clue: 'Capital da Dinamarca' },
+    { display: 'Viena', clue: 'Capital da Áustria, cidade da música clássica' },
+    { display: 'Praga', clue: 'Capital da República Checa' },
+    { display: 'Budapeste', clue: 'Capital da Hungria, dividida pelo rio Danúbio' },
+    { display: 'Marraquexe', clue: 'Cidade marroquina de mercados coloridos' },
+    { display: 'Havana', clue: 'Capital de Cuba' },
+  ];
+
+  Object.keys(WORD_TOPICS).forEach(function (topicKey) {
+    WORD_TOPICS[topicKey].forEach(function (w) { w.grid = toGrid(w.display); });
   });
 
-  /* ---------------------------- Dados: quiz de praia ---------------------------- */
-  var QUIZ_BANK = [
-    { q: 'Qual e o maior oceano do mundo?', options: ['Atlantico', 'Indico', 'Pacifico', 'Artico'], correct: 2 },
-    { q: 'O que causa as mares?', options: ['O vento', 'A atracao da Lua e do Sol', 'As correntes marinhas', 'A temperatura da agua'], correct: 1 },
-    { q: 'Qual destes animais NAO e um mamifero marinho?', options: ['Golfinho', 'Baleia', 'Atum', 'Foca'], correct: 2 },
-    { q: 'Qual e o peixe mais rapido do oceano?', options: ['Espadarte', 'Tubarao-branco', 'Salmao', 'Atum'], correct: 0 },
-    { q: 'Como se chama o estudo cientifico dos oceanos?', options: ['Oceanografia', 'Geologia', 'Meteorologia', 'Astronomia'], correct: 0 },
-    { q: 'Qual e o recife de coral mais extenso do mundo?', options: ['Recife de Belize', 'Grande Barreira de Coral', 'Recife de Tubbataha', 'Triangulo de Coral'], correct: 1 },
-    { q: 'Qual destas praias fica em Portugal?', options: ['Copacabana', 'Bondi Beach', 'Praia da Falesia', 'Waikiki'], correct: 2 },
-    { q: 'Que cor de bandeira indica que uma praia esta vigiada e segura para nadar?', options: ['Vermelha', 'Amarela', 'Verde', 'Preta'], correct: 2 },
-    { q: 'O que e uma duna?', options: ['Um tipo de onda', 'Um monte de areia formado pelo vento', 'Um barco de pesca', 'Um recife de coral'], correct: 1 },
-    { q: 'Qual e o animal marinho com mais tentaculos, o polvo?', options: ['6', '8', '10', '12'], correct: 1 },
-    { q: 'Qual destes NAO e um desporto de praia?', options: ['Voleibol de praia', 'Surf', 'Xadrez', 'Bodyboard'], correct: 2 },
-    { q: 'Porque e que o mar e salgado?', options: ['Por causa dos peixes', 'Devido a minerais dissolvidos das rochas', 'Por causa da chuva', 'Por causa do sol'], correct: 1 },
-    { q: 'Qual e o maior animal do planeta, que vive no oceano?', options: ['Tubarao-baleia', 'Baleia-azul', 'Cachalote', 'Orca'], correct: 1 },
-    { q: 'O que e o SPF num protetor solar?', options: ['Fator de Protecao Solar', 'Sistema de Purificacao Fisica', 'Substancia Para Flutuar', 'Fator de Pele Fina'], correct: 0 },
-    { q: 'Qual destas conchas tem forma de espiral caracteristica?', options: ['Mexilhao', 'Buzio', 'Amelooa', 'Ostra'], correct: 1 },
-    { q: 'Quantos oceanos existem, segundo a divisao mais comum?', options: ['3', '4', '5', '6'], correct: 2 },
-    { q: 'Qual e o pais com a costa maritima mais extensa do mundo?', options: ['Brasil', 'Australia', 'Canada', 'Russia'], correct: 2 },
-    { q: 'Como se chama o fenomeno de agua a subir e a descer todos os dias?', options: ['Corrente', 'Mare', 'Tsunami', 'Ressaca'], correct: 1 },
-    { q: 'Qual destes NAO vive tipicamente em recifes de coral?', options: ['Peixe-palhaco', 'Estrela-do-mar', 'Pinguim', 'Cavalo-marinho'], correct: 2 },
-    { q: 'O que fazem as tartarugas marinhas fêmeas na praia?', options: ['Caçam peixes', 'Poem ovos na areia', 'Constroem ninhos em arvores', 'Hibernam'], correct: 1 },
-    { q: 'Qual e a cor tipica da agua em recifes de coral tropicais?', options: ['Cinzenta', 'Turquesa/azul-clara', 'Castanha', 'Preta'], correct: 1 },
-    { q: 'Que instrumento se usa para medir a profundidade do mar?', options: ['Barometro', 'Termometro', 'Sonar/ecobatimetro', 'Anemometro'], correct: 2 },
-    { q: 'Qual destas ilhas e conhecida pelas suas praias e clima tropical no Atlantico portugues?', options: ['Madeira', 'Groenlandia', 'Islandia', 'Sicilia'], correct: 0 },
-    { q: 'O que e o "surf de ondas grandes" praticado na Nazare?', options: ['Windsurf', 'Big wave surfing', 'Kitesurf', 'Bodyboard'], correct: 1 },
+  var RAW_WORDS = WORD_TOPICS.praia; // compatibilidade (debug export / testes antigos)
+
+  function getWordPool(topic) {
+    if (topic === 'misto') {
+      var all = [];
+      Object.keys(WORD_TOPICS).forEach(function (k) { all = all.concat(WORD_TOPICS[k]); });
+      return all;
+    }
+    if (topic === 'paisescidades') return WORD_TOPICS.paises.concat(WORD_TOPICS.cidades);
+    return WORD_TOPICS[topic] || getWordPool('misto');
+  }
+  function getCrosswordPool(topic) {
+    return getWordPool(topic).map(function (w) {
+      return { word: w.grid, clue: w.clue, display: w.display };
+    });
+  }
+
+  /* ---------------------------- Dados: banco de quiz por topico ---------------------------- */
+  var QUIZ_TOPICS = {};
+  QUIZ_TOPICS.praia = [
+    { q: 'Qual é o maior oceano do mundo?', options: ['Atlântico', 'Índico', 'Pacífico', 'Ártico'], correct: 2 },
+    { q: 'O que causa as marés?', options: ['O vento', 'A atração da Lua e do Sol', 'As correntes marinhas', 'A temperatura da água'], correct: 1 },
+    { q: 'Qual destes animais NÃO é um mamífero marinho?', options: ['Golfinho', 'Baleia', 'Atum', 'Foca'], correct: 2 },
+    { q: 'Qual é o peixe mais rápido do oceano?', options: ['Espadarte', 'Tubarão-branco', 'Salmão', 'Atum'], correct: 0 },
+    { q: 'Como se chama o estudo científico dos oceanos?', options: ['Oceanografia', 'Geologia', 'Meteorologia', 'Astronomia'], correct: 0 },
+    { q: 'Qual é o recife de coral mais extenso do mundo?', options: ['Recife de Belize', 'Grande Barreira de Coral', 'Recife de Tubbataha', 'Triângulo de Coral'], correct: 1 },
+    { q: 'Qual destas praias fica em Portugal?', options: ['Copacabana', 'Bondi Beach', 'Praia da Falésia', 'Waikiki'], correct: 2 },
+    { q: 'Que cor de bandeira indica que uma praia está vigiada e segura para nadar?', options: ['Vermelha', 'Amarela', 'Verde', 'Preta'], correct: 2 },
+    { q: 'O que é uma duna?', options: ['Um tipo de onda', 'Um monte de areia formado pelo vento', 'Um barco de pesca', 'Um recife de coral'], correct: 1 },
+    { q: 'Quantos tentáculos tem um polvo?', options: ['6', '8', '10', '12'], correct: 1 },
+    { q: 'Qual destes NÃO é um desporto de praia?', options: ['Voleibol de praia', 'Surf', 'Xadrez', 'Bodyboard'], correct: 2 },
+    { q: 'Porque é que o mar é salgado?', options: ['Por causa dos peixes', 'Devido a minerais dissolvidos das rochas', 'Por causa da chuva', 'Por causa do sol'], correct: 1 },
+    { q: 'Qual é o maior animal do planeta, que vive no oceano?', options: ['Tubarão-baleia', 'Baleia-azul', 'Cachalote', 'Orca'], correct: 1 },
+    { q: 'O que é o SPF num protetor solar?', options: ['Fator de Proteção Solar', 'Sistema de Purificação Física', 'Substância Para Flutuar', 'Fator de Pele Fina'], correct: 0 },
+    { q: 'Qual destas conchas tem forma de espiral característica?', options: ['Mexilhão', 'Búzio', 'Amêijoa', 'Ostra'], correct: 1 },
+    { q: 'Quantos oceanos existem, segundo a divisão mais comum?', options: ['3', '4', '5', '6'], correct: 2 },
+    { q: 'Qual é o país com a costa marítima mais extensa do mundo?', options: ['Brasil', 'Austrália', 'Canadá', 'Rússia'], correct: 2 },
+    { q: 'Como se chama o fenómeno de água a subir e a descer todos os dias?', options: ['Corrente', 'Maré', 'Tsunami', 'Ressaca'], correct: 1 },
+    { q: 'Qual destes NÃO vive tipicamente em recifes de coral?', options: ['Peixe-palhaço', 'Estrela-do-mar', 'Pinguim', 'Cavalo-marinho'], correct: 2 },
+    { q: 'O que fazem as tartarugas marinhas fêmeas na praia?', options: ['Caçam peixes', 'Põem ovos na areia', 'Constroem ninhos em árvores', 'Hibernam'], correct: 1 },
+    { q: 'Qual é a cor típica da água em recifes de coral tropicais?', options: ['Cinzenta', 'Turquesa/azul-clara', 'Castanha', 'Preta'], correct: 1 },
+    { q: 'Que instrumento se usa para medir a profundidade do mar?', options: ['Barómetro', 'Termómetro', 'Sonar/ecobatímetro', 'Anemómetro'], correct: 2 },
+    { q: 'Qual destas ilhas é conhecida pelas suas praias e clima subtropical no Atlântico português?', options: ['Madeira', 'Gronelândia', 'Islândia', 'Sicília'], correct: 0 },
+    { q: 'O que é o "surf de ondas grandes" praticado na Nazaré?', options: ['Windsurf', 'Big wave surfing', 'Kitesurf', 'Bodyboard'], correct: 1 },
+    { q: 'Como se chama a onda gigante causada por um sismo ou erupção vulcânica no fundo do mar?', options: ['Ressaca', 'Maré viva', 'Tsunami', 'Corrente de retorno'], correct: 2 },
+    { q: 'Quantas patas tem um caranguejo, ao todo (incluindo as pinças)?', options: ['6', '8', '10', '12'], correct: 2 },
+    { q: 'Onde vivem tipicamente os búzios, as conchas em espiral?', options: ['No fundo do mar e na areia', 'Em árvores', 'No ar', 'Em rios de água doce apenas'], correct: 0 },
+    { q: 'Que tipo de animal é o cavalo-marinho?', options: ['Peixe', 'Crustáceo', 'Molusco', 'Réptil'], correct: 0 },
+    { q: 'Como se chama a corrente marinha que puxa os banhistas para o largo, potencialmente perigosa?', options: ['Corrente de retorno (ressaca)', 'Maré alta', 'Corrente do Golfo', 'Brisa marítima'], correct: 0 },
+    { q: 'Qual é o nome da prancha usada deitado para deslizar sobre ondas, mais pequena que a de surf?', options: ['Bodyboard', 'Windsurf', 'Catamarã', 'Jet ski'], correct: 0 },
+    { q: 'Em que oceano se situa o Triângulo das Bermudas?', options: ['Pacífico', 'Atlântico', 'Índico', 'Ártico'], correct: 1 },
+    { q: 'Qual destes países NÃO tem costa marítima?', options: ['Portugal', 'Suíça', 'Grécia', 'Marrocos'], correct: 1 },
+    { q: 'Como se chama a ciência que estuda os peixes?', options: ['Ictiologia', 'Ornitologia', 'Entomologia', 'Botânica'], correct: 0 },
+    { q: 'Qual destes é um crustáceo de grandes antenas, muito apreciado na gastronomia?', options: ['Lagosta', 'Medusa', 'Estrela-do-mar', 'Ouriço-do-mar'], correct: 0 },
+    { q: 'Como se chama o fenómeno em que os corais perdem a cor devido ao aquecimento da água?', options: ['Branqueamento do coral', 'Maré vermelha', 'Erosão costeira', 'Eutrofização'], correct: 0 },
+    { q: 'Como se chama a zona da praia coberta na maré alta e descoberta na maré baixa?', options: ['Zona entremarés', 'Duna', 'Sapal', 'Arrecife'], correct: 0 },
+    { q: 'Qual destas NÃO é uma técnica oficial de natação de competição?', options: ['Costas', 'Bruços', 'Mariposa', 'Caranguejo'], correct: 3 },
+    { q: 'Aproximadamente quanto tempo dura o ciclo entre duas marés altas?', options: ['Cerca de 6 horas', 'Cerca de 12 horas e 25 minutos', 'Cerca de 24 horas', 'Cerca de 3 dias'], correct: 1 },
+    { q: 'Que animal marinho é conhecido por mudar de cor rapidamente para se camuflar?', options: ['Polvo', 'Golfinho', 'Atum', 'Baleia'], correct: 0 },
+    { q: 'Qual é o arquipélago português no meio do Atlântico, conhecido pelas suas lagoas vulcânicas?', options: ['Açores', 'Baleares', 'Canárias', 'Maldivas'], correct: 0 },
+    { q: 'Que equipamento permite a um mergulhador respirar debaixo de água durante mais tempo?', options: ['Cilindro de mergulho (scuba)', 'Snorkel', 'Boia', 'Nadadeiras'], correct: 0 },
+    { q: 'Como se chama o desporto em que se anda de pé sobre uma prancha larga, ajudado por um remo?', options: ['Stand-up paddle', 'Windsurf', 'Bodyboard', 'Kitesurf'], correct: 0 },
   ];
+
+  QUIZ_TOPICS.animais = [
+    { q: 'Qual é o maior mamífero terrestre?', options: ['Rinoceronte', 'Elefante-africano', 'Hipopótamo', 'Girafa'], correct: 1 },
+    { q: 'Quantas patas tem uma aranha?', options: ['6', '8', '10', '12'], correct: 1 },
+    { q: 'Qual destes animais é um marsupial?', options: ['Coala', 'Panda', 'Lobo', 'Raposa'], correct: 0 },
+    { q: 'Qual é o animal terrestre mais rápido do mundo?', options: ['Leão', 'Guepardo', 'Cavalo', 'Avestruz'], correct: 1 },
+    { q: 'Que animal é tradicionalmente conhecido como "rei da selva"?', options: ['Tigre', 'Leão', 'Leopardo', 'Elefante'], correct: 1 },
+    { q: 'Qual destas aves não consegue voar?', options: ['Águia', 'Avestruz', 'Falcão', 'Andorinha'], correct: 1 },
+    { q: 'Quantos corações tem um polvo?', options: ['1', '2', '3', '4'], correct: 2 },
+    { q: 'Qual é o único mamífero capaz de voar de forma ativa?', options: ['Esquilo-voador', 'Morcego', 'Falcão', 'Coala'], correct: 1 },
+    { q: 'Que animal muda de cor para se camuflar no ambiente?', options: ['Camaleão', 'Cobra', 'Lagarto comum', 'Crocodilo'], correct: 0 },
+    { q: 'Qual destes animais hiberna durante o inverno?', options: ['Urso', 'Leão', 'Elefante', 'Zebra'], correct: 0 },
+    { q: 'Os cangurus são originários de que país/continente?', options: ['África', 'Austrália', 'Ásia', 'América do Sul'], correct: 1 },
+    { q: 'Que inseto produz mel e polinizador é essencial para as plantas?', options: ['Formiga', 'Abelha', 'Borboleta', 'Vespa'], correct: 1 },
+    { q: 'Qual destes animais vive tipicamente em colónias muito organizadas?', options: ['Tigre', 'Formiga', 'Urso', 'Águia'], correct: 1 },
+    { q: 'Que animal é conhecido por construir represas (diques) em rios com troncos e ramos?', options: ['Castor', 'Esquilo', 'Lontra', 'Rato-almiscarado'], correct: 0 },
+    { q: 'Qual destes primatas é considerado o mais próximo geneticamente do ser humano?', options: ['Gorila', 'Chimpanzé', 'Orangotango', 'Bonobo (idêntico ao chimpanzé)'], correct: 1 },
+    { q: 'Onde vivem tipicamente os pinguins na natureza?', options: ['No Ártico', 'Sobretudo no hemisfério sul, incluindo a Antártida', 'No deserto do Saara', 'Na Amazónia'], correct: 1 },
+  ];
+
+  QUIZ_TOPICS.profissoes = [
+    { q: 'Quem trata da saúde dos animais?', options: ['Médico', 'Veterinário', 'Enfermeiro', 'Farmacêutico'], correct: 1 },
+    { q: 'Quem desenha a planta de uma casa antes de ser construída?', options: ['Arquiteto', 'Canalizador', 'Eletricista', 'Pedreiro'], correct: 0 },
+    { q: 'Que profissional está treinado para apagar incêndios e fazer resgates?', options: ['Polícia', 'Bombeiro', 'Enfermeiro', 'Guarda-florestal'], correct: 1 },
+    { q: 'Quem decide as sentenças num tribunal?', options: ['Advogado', 'Juiz', 'Polícia', 'Procurador'], correct: 1 },
+    { q: 'Quem prepara e vende medicamentos numa farmácia?', options: ['Médico', 'Farmacêutico', 'Enfermeiro', 'Dentista'], correct: 1 },
+    { q: 'Que profissional cuida especificamente dos dentes dos pacientes?', options: ['Dentista', 'Oftalmologista', 'Dermatologista', 'Fisioterapeuta'], correct: 0 },
+    { q: 'Quem é responsável por conduzir um avião comercial?', options: ['Piloto', 'Comissário de bordo', 'Controlador aéreo', 'Mecânico'], correct: 0 },
+    { q: 'Qual destas profissões trabalha principalmente a madeira?', options: ['Carpinteiro', 'Canalizador', 'Eletricista', 'Pedreiro'], correct: 0 },
+    { q: 'Quem investiga factos e reporta notícias para jornais ou televisão?', options: ['Escritor', 'Jornalista', 'Editor gráfico', 'Locutor de rádio'], correct: 1 },
+    { q: 'Quem interpreta personagens em filmes ou peças de teatro?', options: ['Bailarino', 'Ator', 'Cantor', 'Realizador'], correct: 1 },
+    { q: 'Quem cultiva a terra para produzir alimentos?', options: ['Pescador', 'Agricultor', 'Jardineiro', 'Pecuarista'], correct: 1 },
+    { q: 'Que profissional corta e trata do cabelo dos clientes?', options: ['Esteticista', 'Cabeleireiro', 'Maquilhador', 'Alfaiate'], correct: 1 },
+    { q: 'Quem gere as contas e finanças de uma empresa?', options: ['Advogado', 'Contabilista', 'Notário', 'Corretor de seguros'], correct: 1 },
+    { q: 'Como se chama quem trabalha a bordo de um navio, fazendo parte da tripulação?', options: ['Marinheiro', 'Alfaiate', 'Padeiro', 'Canalizador'], correct: 0 },
+    { q: 'Que profissional repara canos e torneiras com fugas de água?', options: ['Eletricista', 'Canalizador', 'Carpinteiro', 'Pedreiro'], correct: 1 },
+    { q: 'Quem escreve código de computador para criar aplicações e programas?', options: ['Designer gráfico', 'Programador', 'Contabilista', 'Arquiteto'], correct: 1 },
+  ];
+
+  QUIZ_TOPICS.paises = [
+    { q: 'Qual é a capital de Portugal?', options: ['Porto', 'Lisboa', 'Faro', 'Coimbra'], correct: 1 },
+    { q: 'Qual é o maior país do mundo em área?', options: ['China', 'Canadá', 'Rússia', 'Brasil'], correct: 2 },
+    { q: 'Em que país se encontra a Torre Eiffel?', options: ['Itália', 'Espanha', 'França', 'Alemanha'], correct: 2 },
+    { q: 'Qual é atualmente o país mais populoso do mundo?', options: ['China', 'Índia', 'Estados Unidos', 'Indonésia'], correct: 1 },
+    { q: 'Qual destes países tem mais falantes de português como língua materna?', options: ['Portugal', 'Angola', 'Brasil', 'Moçambique'], correct: 2 },
+    { q: 'Que país é conhecido pela Grande Muralha, construída há milhares de anos?', options: ['Índia', 'China', 'Mongólia', 'Coreia do Sul'], correct: 1 },
+    { q: 'Em que dois países se situa o Monte Evereste, na fronteira?', options: ['Nepal e China', 'Índia e Paquistão', 'Rússia e Mongólia', 'Chile e Argentina'], correct: 0 },
+    { q: 'Qual destes países é interior, sem costa marítima?', options: ['Portugal', 'Suíça', 'Grécia', 'Marrocos'], correct: 1 },
+    { q: 'Qual é a moeda oficial da maioria dos países da União Europeia?', options: ['Dólar', 'Euro', 'Libra', 'Franco'], correct: 1 },
+    { q: 'Em que país se localiza a cidade do Rio de Janeiro?', options: ['Argentina', 'Brasil', 'Portugal', 'Uruguai'], correct: 1 },
+    { q: 'Que país é conhecido pelos fiordes e pelas auroras boreais?', options: ['Noruega', 'Espanha', 'Grécia', 'Itália'], correct: 0 },
+    { q: 'Qual é o idioma oficial do Brasil?', options: ['Espanhol', 'Português', 'Inglês', 'Francês'], correct: 1 },
+    { q: 'Qual destes países fica no continente africano?', options: ['Angola', 'Bolívia', 'Nepal', 'Finlândia'], correct: 0 },
+    { q: 'Que país do Sudeste Asiático é formado por milhares de ilhas e é o maior arquipélago do mundo?', options: ['Filipinas', 'Indonésia', 'Japão', 'Malásia'], correct: 1 },
+    { q: 'Qual é o país com mais fusos horários no mundo, devido aos seus territórios ultramarinos?', options: ['Estados Unidos', 'Rússia', 'China', 'França'], correct: 3 },
+    { q: 'Qual destes países fica na Península Ibérica?', options: ['França', 'Itália', 'Espanha', 'Marrocos'], correct: 2 },
+    { q: 'Que país europeu tem a forma de uma bota?', options: ['Grécia', 'Itália', 'Portugal', 'Croácia'], correct: 1 },
+  ];
+
+  QUIZ_TOPICS.cidades = [
+    { q: 'Qual é a capital do Japão?', options: ['Osaca', 'Tóquio', 'Quioto', 'Nagoia'], correct: 1 },
+    { q: 'Em que cidade fica o Coliseu?', options: ['Roma', 'Milão', 'Nápoles', 'Veneza'], correct: 0 },
+    { q: 'Qual é a capital de França?', options: ['Marselha', 'Lyon', 'Paris', 'Nice'], correct: 2 },
+    { q: 'Em que cidade italiana há canais em vez de ruas para muitos percursos?', options: ['Florença', 'Veneza', 'Milão', 'Turim'], correct: 1 },
+    { q: 'Qual é a capital do Reino Unido?', options: ['Manchester', 'Liverpool', 'Londres', 'Birmingham'], correct: 2 },
+    { q: 'Em que cidade se localiza a Estátua da Liberdade?', options: ['Los Angeles', 'Nova Iorque', 'Chicago', 'Boston'], correct: 1 },
+    { q: 'Qual é a capital da Rússia?', options: ['São Petersburgo', 'Moscovo', 'Kiev', 'Minsk'], correct: 1 },
+    { q: 'Em que cidade brasileira se localiza o Cristo Redentor?', options: ['São Paulo', 'Rio de Janeiro', 'Brasília', 'Salvador'], correct: 1 },
+    { q: 'Qual é a segunda maior cidade de Portugal?', options: ['Braga', 'Coimbra', 'Porto', 'Faro'], correct: 2 },
+    { q: 'Em que cidade fica a famosa Casa da Ópera com forma de conchas?', options: ['Melbourne', 'Sydney', 'Camberra', 'Auckland'], correct: 1 },
+    { q: 'Qual é a capital da Alemanha?', options: ['Munique', 'Frankfurt', 'Hamburgo', 'Berlim'], correct: 3 },
+    { q: 'Em que cidade brasileira se realiza tradicionalmente o carnaval mais famoso do país?', options: ['São Paulo', 'Salvador', 'Rio de Janeiro', 'Recife'], correct: 2 },
+    { q: 'Qual é a capital da China?', options: ['Xangai', 'Pequim', 'Hong Kong', 'Cantão'], correct: 1 },
+    { q: 'Em que cidade fica a Sagrada Família, obra do arquiteto Gaudí?', options: ['Madrid', 'Sevilha', 'Barcelona', 'Valência'], correct: 2 },
+    { q: 'Qual é a capital da Grécia?', options: ['Esparta', 'Tessalónica', 'Atenas', 'Corinto'], correct: 2 },
+    { q: 'Em que cidade se encontra o Burj Khalifa, o edifício mais alto do mundo?', options: ['Doha', 'Dubai', 'Abu Dhabi', 'Riade'], correct: 1 },
+  ];
+
+  var QUIZ_BANK = QUIZ_TOPICS.praia; // compatibilidade (debug export / testes antigos)
+
+  function getQuizPool(topic) {
+    if (topic === 'misto') {
+      var all = [];
+      Object.keys(QUIZ_TOPICS).forEach(function (k) { all = all.concat(QUIZ_TOPICS[k]); });
+      return all;
+    }
+    if (topic === 'paisescidades') return QUIZ_TOPICS.paises.concat(QUIZ_TOPICS.cidades);
+    return QUIZ_TOPICS[topic] || getQuizPool('misto');
+  }
+
+  var TOPICS = [
+    { id: 'misto', name: 'Misto (cultura geral)', emoji: '🌍' },
+    { id: 'praia', name: 'Praia', emoji: '🏖️' },
+    { id: 'animais', name: 'Animais', emoji: '🐾' },
+    { id: 'profissoes', name: 'Profissões', emoji: '👷' },
+    { id: 'paises', name: 'Países', emoji: '🌐' },
+    { id: 'cidades', name: 'Cidades', emoji: '🏙️' },
+    { id: 'paisescidades', name: 'Países + Cidades', emoji: '🗺️' },
+  ];
+  function topicById(id) { for (var i = 0; i < TOPICS.length; i++) if (TOPICS[i].id === id) return TOPICS[i]; return TOPICS[0]; }
 
   /* ---------------------------- Emojis: memoria ---------------------------- */
   var MEMORY_EMOJIS = ['🏖️', '🌊', '🐚', '☀️', '🩴', '🦀', '🐬', '⛵', '🕶️', '🍦', '🐙', '⭐', '🌴', '🐠', '⚓', '🦈'];
@@ -758,6 +1154,7 @@ p { line-height: 1.4; }
   /* ---------------------------- Armazenamento local ---------------------------- */
   var LS_SETTINGS = 'praiaJogos.settings.v1';
   var LS_HISTORY = 'praiaJogos.history.v1';
+  var LS_GROUPS = 'praiaJogos.groups.v1';
   function loadJSON(key, fallback) {
     try { var raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : fallback; }
     catch (e) { return fallback; }
@@ -766,7 +1163,7 @@ p { line-height: 1.4; }
     try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
   }
   function getSettings() {
-    return loadJSON(LS_SETTINGS, { lastDifficulty: 'normal', lastCount: 4, lastMode: 'mix', lastSelected: [] });
+    return loadJSON(LS_SETTINGS, { lastDifficulty: 'normal', lastCount: 4, lastMode: 'mix', lastSelected: [], lastTopic: 'misto', playerName: '' });
   }
   function saveSettings(s) { saveJSON(LS_SETTINGS, s); }
   function getHistory() { return loadJSON(LS_HISTORY, []); }
@@ -777,6 +1174,44 @@ p { line-height: 1.4; }
     saveJSON(LS_HISTORY, h);
   }
   function clearHistory() { saveJSON(LS_HISTORY, []); }
+
+  // -- Grupos (runs em multiplayer partilhadas por link/QR code) --
+  function getGroups() { return loadJSON(LS_GROUPS, {}); }
+  function saveGroups(g) { saveJSON(LS_GROUPS, g); }
+  function getGroup(groupId) {
+    var groups = getGroups();
+    return groups[groupId] || null;
+  }
+  function ensureGroup(groupId, meta) {
+    var groups = getGroups();
+    if (!groups[groupId]) groups[groupId] = { createdAt: Date.now(), meta: meta || {}, entries: [] };
+    else if (meta) groups[groupId].meta = meta;
+    saveGroups(groups);
+    return groups[groupId];
+  }
+  // Guarda (ou atualiza, se ja existir um resultado melhor) a pontuacao de uma pessoa no grupo.
+  function addGroupResult(groupId, meta, name, score, dateIso) {
+    var groups = getGroups();
+    if (!groups[groupId]) groups[groupId] = { createdAt: Date.now(), meta: meta || {}, entries: [] };
+    else if (meta) groups[groupId].meta = meta;
+    var entries = groups[groupId].entries;
+    var existing = null;
+    for (var i = 0; i < entries.length; i++) if (entries[i].name === name) { existing = entries[i]; break; }
+    var isNewBest = true;
+    if (existing) {
+      isNewBest = score > existing.score;
+      if (isNewBest) { existing.score = score; existing.date = dateIso; }
+    } else {
+      entries.push({ name: name, score: score, date: dateIso });
+    }
+    saveGroups(groups);
+    return { group: groups[groupId], isNewBest: isNewBest };
+  }
+  function rankedGroupEntries(groupId) {
+    var g = getGroup(groupId);
+    if (!g) return [];
+    return g.entries.slice().sort(function (a, b) { return b.score - a.score; });
+  }
 
   /* ---------------------------- Jogos & pontuacao ---------------------------- */
   var GAMES = [
@@ -815,9 +1250,12 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: SUDOKU ============================= */
-  function mountSudoku(container, actionsEl, difficulty, rng, onFinish) {
+  function mountSudoku(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.sudoku[difficulty];
-    var gen = generateSudoku(params.givens, rng);
+    // Small random jitter on top of the base givens count so boards from the same difficulty
+    // don't all look like the same density/shape.
+    var givensTarget = clamp(params.givens + Math.floor(rng() * 7) - 3, 22, 46);
+    var gen = generateSudoku(givensTarget, rng);
     var puzzle = gen.puzzle, solution = gen.solution;
     var userGrid = puzzle.map(function (row) { return row.slice(); });
     var given = puzzle.map(function (row) { return row.map(function (v) { return v !== 0; }); });
@@ -931,9 +1369,10 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: SOPA DE LETRAS ============================= */
-  function mountWordSearch(container, actionsEl, difficulty, rng, onFinish) {
+  function mountWordSearch(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.wordsearch[difficulty];
-    var eligible = RAW_WORDS.filter(function (w) { return w.grid.length >= 3 && w.grid.length <= params.size; });
+    var wordPool = getWordPool(topic);
+    var eligible = wordPool.filter(function (w) { return w.grid.length >= 3 && w.grid.length <= params.size; });
     var chosenWords = pick(eligible, params.words, rng);
     var wordStrings = chosenWords.map(function (w) { return w.grid; });
     var gen = generateWordSearch(wordStrings, params.size, rng);
@@ -1063,11 +1502,17 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: PALAVRAS CRUZADAS ============================= */
-  function mountCrossword(container, actionsEl, difficulty, rng, onFinish) {
+  function mountCrossword(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.crossword[difficulty];
     var gen = null, tries = 0;
-    while ((!gen || gen.words.length < Math.min(4, params.words)) && tries < 6) {
-      gen = generateCrossword(CROSSWORD_ENTRIES, params.size, params.words, rng);
+    var crosswordEntries = getCrosswordPool(topic);
+    // Sample a fresh random subset of the word bank on every attempt (not the full bank every
+    // time) so the anchor word and overall word selection vary a lot between crosswords, instead
+    // of always anchoring on whichever single word happens to be the longest in the whole bank.
+    var subsetSize = Math.min(crosswordEntries.length, params.words * 5);
+    while ((!gen || gen.words.length < Math.min(4, params.words)) && tries < 8) {
+      var pool = pick(crosswordEntries, subsetSize, rng);
+      gen = generateCrossword(pool, params.size, params.words, rng);
       tries++;
     }
     var finished = false;
@@ -1241,9 +1686,11 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: FORCA ============================= */
-  function mountHangman(container, actionsEl, difficulty, rng, onFinish) {
+  function mountHangman(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.hangman[difficulty];
-    var pool = RAW_WORDS.filter(function (w) { return w.display.indexOf(' ') === -1 && w.grid.length >= 4 && w.grid.length <= 10; });
+    var wordPool = getWordPool(topic);
+    var pool = wordPool.filter(function (w) { return w.display.indexOf(' ') === -1 && w.grid.length >= 4 && w.grid.length <= 10; });
+    if (!pool.length) pool = wordPool.filter(function (w) { return w.grid.length >= 4 && w.grid.length <= 12; });
     var chosen = pool[Math.floor(rng() * pool.length)];
     var word = chosen.grid;
     var revealed = word.split('').map(function () { return false; });
@@ -1310,9 +1757,11 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: ANAGRAMA ============================= */
-  function mountAnagram(container, actionsEl, difficulty, rng, onFinish) {
+  function mountAnagram(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.anagram[difficulty];
-    var pool = RAW_WORDS.filter(function (w) { return w.display.indexOf(' ') === -1 && w.grid.length >= 4 && w.grid.length <= params.maxLen; });
+    var wordPool = getWordPool(topic);
+    var pool = wordPool.filter(function (w) { return w.display.indexOf(' ') === -1 && w.grid.length >= 4 && w.grid.length <= params.maxLen; });
+    if (!pool.length) pool = wordPool.filter(function (w) { return w.grid.length >= 4 && w.grid.length <= Math.max(params.maxLen, 12); });
     var chosen = pool[Math.floor(rng() * pool.length)];
     var word = chosen.grid;
     var finished = false, hintCount = 0, wrongTries = 0;
@@ -1406,9 +1855,10 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: QUIZ ============================= */
-  function mountQuiz(container, actionsEl, difficulty, rng, onFinish) {
+  function mountQuiz(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.quiz[difficulty];
-    var questions = pick(QUIZ_BANK, params.n, rng).map(function (q) {
+    var quizPool = getQuizPool(topic);
+    var questions = pick(quizPool, Math.min(params.n, quizPool.length), rng).map(function (q) {
       var optionsWithFlag = q.options.map(function (opt, i) { return { text: opt, correct: i === q.correct }; });
       return { q: q.q, options: shuffle(optionsWithFlag, rng) };
     });
@@ -1471,7 +1921,7 @@ p { line-height: 1.4; }
   }
 
   /* ============================= JOGO: MEMORIA ============================= */
-  function mountMemory(container, actionsEl, difficulty, rng, onFinish) {
+  function mountMemory(container, actionsEl, difficulty, rng, topic, onFinish) {
     var params = DIFF_PARAMS.memory[difficulty];
     var chosenEmojis = pick(MEMORY_EMOJIS, params.pairs, rng);
     var cardsData = shuffle(chosenEmojis.concat(chosenEmojis), rng);
@@ -1537,6 +1987,7 @@ p { line-height: 1.4; }
     screen: 'home', runConfig: null, draftConfig: null, queue: [], results: [],
     currentIndex: 0, currentInstance: null, challengeStartTime: 0, hudTimerInterval: null,
     lastChallengeResult: null, lastRunSummary: null, rng: Math.random,
+    group: null, pendingJoin: null, pendingResult: null, groupBoardId: null,
   };
 
   var root = null;
@@ -1552,6 +2003,8 @@ p { line-height: 1.4; }
     else if (App.screen === 'summary') renderSummary();
     else if (App.screen === 'history') renderHistory();
     else if (App.screen === 'help') renderHelp();
+    else if (App.screen === 'joinChallenge') renderJoinChallenge();
+    else if (App.screen === 'groupBoard') renderGroupBoard();
   }
 
   function startHudTimer(pillEl) {
@@ -1623,6 +2076,9 @@ p { line-height: 1.4; }
       mode: settings.lastMode || 'mix',
       selected: (settings.lastSelected && settings.lastSelected.length) ? settings.lastSelected.slice() : GAMES.map(function (g) { return g.id; }),
       difficulty: settings.lastDifficulty || 'normal',
+      topic: settings.lastTopic || 'misto',
+      groupMode: 'solo',
+      playerName: settings.playerName || '',
     };
     App.draftConfig = draft;
 
@@ -1649,6 +2105,18 @@ p { line-height: 1.4; }
     card2.appendChild(chipRow);
     card2.appendChild(el('p', 'small-note', draft.mode === 'mix' ? 'Os desafios sao escolhidos aleatoriamente entre todos os jogos, sem repetir.' : 'Escolhe os tipos de jogos a incluir (repetem-se se escolheres poucos).'));
     screen.appendChild(card2);
+
+    var cardTopic = el('div', 'card');
+    cardTopic.appendChild(el('h3', null, 'Tópico do conteúdo'));
+    var topicRow = el('div', 'chip-row');
+    TOPICS.forEach(function (t) {
+      var chip = el('div', 'chip' + (draft.topic === t.id ? ' active' : ''), t.emoji + ' ' + t.name);
+      chip.addEventListener('click', function () { draft.topic = t.id; render(); });
+      topicRow.appendChild(chip);
+    });
+    cardTopic.appendChild(topicRow);
+    cardTopic.appendChild(el('p', 'small-note', 'Escolhe o tema das palavras, pistas e perguntas dos jogos (Sudoku e Memória não são afetados).'));
+    screen.appendChild(cardTopic);
 
     if (draft.mode === 'custom') {
       var card3 = el('div', 'card');
@@ -1682,21 +2150,73 @@ p { line-height: 1.4; }
     card4.appendChild(diffRow);
     screen.appendChild(card4);
 
-    var startBtn = el('button', 'btn btn-primary btn-block', '🏁 Comecar Run');
-    startBtn.addEventListener('click', function () { startRun(draft); });
+    var card5 = el('div', 'card');
+    card5.appendChild(el('h3', null, '👥 Jogar em grupo'));
+    var groupRow = el('div', 'chip-row');
+    var soloChip = el('div', 'chip' + (draft.groupMode === 'solo' ? ' active' : ''), '🧍 Solo');
+    var grupoChip = el('div', 'chip' + (draft.groupMode === 'grupo' ? ' active' : ''), '👥 Grupo (partilhar)');
+    soloChip.addEventListener('click', function () { draft.groupMode = 'solo'; render(); });
+    grupoChip.addEventListener('click', function () { draft.groupMode = 'grupo'; render(); });
+    groupRow.appendChild(soloChip); groupRow.appendChild(grupoChip);
+    card5.appendChild(groupRow);
+    if (draft.groupMode === 'grupo') {
+      card5.appendChild(el('p', 'small-note', 'Cria uma run que podes partilhar por link ou QR code. Todos jogam exatamente os mesmos desafios e no final comparam pontuações.'));
+      var nameLabel = el('label', 'field-label', 'O teu nome');
+      var nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.className = 'text-input';
+      nameInput.placeholder = 'Ex: Gonçalo';
+      nameInput.maxLength = 24;
+      nameInput.value = draft.playerName || '';
+      nameInput.addEventListener('input', function () { draft.playerName = this.value; });
+      card5.appendChild(nameLabel);
+      card5.appendChild(nameInput);
+    } else {
+      card5.appendChild(el('p', 'small-note', 'Modo normal, só para ti. Muda para "Grupo" para desafiar amigos.'));
+    }
+    screen.appendChild(card5);
+
+    var startBtn = el('button', 'btn btn-primary btn-block', draft.groupMode === 'grupo' ? '🚀 Criar Run de Grupo' : '🏁 Comecar Run');
+    startBtn.addEventListener('click', function () {
+      if (draft.groupMode === 'grupo' && !(draft.playerName && draft.playerName.trim())) {
+        toast('Escreve o teu nome para jogares em grupo');
+        return;
+      }
+      startRun(draft);
+    });
     screen.appendChild(startBtn);
 
     root.appendChild(screen);
   }
 
-  function startRun(draft) {
-    saveSettings({ lastCount: draft.count, lastMode: draft.mode, lastSelected: draft.selected, lastDifficulty: draft.difficulty });
+  // groupOverride (opcional): { id, seed, hostName, isHost, playerName } - usado quando se entra
+  // numa run de grupo (seja a criar como anfitriao, seja a aderir a um link de convite). Quando
+  // presente, faz com que TODA a geracao de conteudo (fila de jogos + puzzles) use um PRNG semeado
+  // pelo mesmo "seed", garantindo que todos os participantes recebem exatamente os mesmos desafios.
+  function startRun(draft, groupOverride) {
+    var prevSettings = getSettings();
+    saveSettings({
+      lastCount: draft.count, lastMode: draft.mode, lastSelected: draft.selected, lastDifficulty: draft.difficulty,
+      lastTopic: draft.topic || 'misto', playerName: (draft.playerName || prevSettings.playerName || ''),
+    });
+
+    var group = null;
+    var rng = Math.random;
+    if (groupOverride) {
+      group = groupOverride;
+      rng = seededRng(group.seed);
+    } else if (draft.groupMode === 'grupo') {
+      group = { id: 'g' + randomSeed(), seed: randomSeed(), hostName: (draft.playerName || '').trim(), isHost: true, playerName: (draft.playerName || '').trim() };
+      rng = seededRng(group.seed);
+    }
+    App.rng = rng;
+
     var queue;
     if (draft.mode === 'mix') {
-      queue = shuffle(GAMES.map(function (g) { return g.id; })).slice(0, draft.count);
+      queue = shuffle(GAMES.map(function (g) { return g.id; }), rng).slice(0, draft.count);
     } else {
       var sel = draft.selected.length ? draft.selected : GAMES.map(function (g) { return g.id; });
-      var poolArr = shuffle(sel);
+      var poolArr = shuffle(sel, rng);
       queue = [];
       while (queue.length < draft.count) {
         var next = poolArr[queue.length % poolArr.length];
@@ -1706,10 +2226,14 @@ p { line-height: 1.4; }
         queue.push(next);
       }
     }
-    App.runConfig = { count: draft.count, mode: draft.mode, selected: draft.selected.slice(), difficulty: draft.difficulty };
+    App.runConfig = { count: draft.count, mode: draft.mode, selected: draft.selected.slice(), difficulty: draft.difficulty, topic: draft.topic || 'misto' };
     App.queue = queue;
     App.results = [];
     App.currentIndex = 0;
+    App.group = group;
+    if (group) {
+      ensureGroup(group.id, { seed: group.seed, cfg: App.runConfig, hostName: group.hostName });
+    }
     goto('playing');
   }
 
@@ -1763,7 +2287,7 @@ p { line-height: 1.4; }
       goto('challengeResult');
     }
 
-    App.currentInstance = MOUNT_FNS[gameId](gameContainer, actionsInner, App.runConfig.difficulty, App.rng, onFinish);
+    App.currentInstance = MOUNT_FNS[gameId](gameContainer, actionsInner, App.runConfig.difficulty, App.rng, App.runConfig.topic || 'misto', onFinish);
   }
 
   function renderChallengeResult() {
@@ -1804,14 +2328,21 @@ p { line-height: 1.4; }
     var anyAbandoned = App.results.some(function (r) { return r.abandoned; });
     var bonus = anyAbandoned ? 0 : Math.round(100 + App.results.length * 20);
     totalScore += bonus;
+    var dateIso = new Date().toISOString();
     var entry = {
       id: 'run-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 6),
-      date: new Date().toISOString(),
+      date: dateIso,
       count: App.queue.length, mode: App.runConfig.mode, difficulty: App.runConfig.difficulty,
       totalScore: totalScore, bonus: bonus, results: App.results,
     };
     addHistoryEntry(entry);
     App.lastRunSummary = entry;
+    if (App.group) {
+      var playerName = App.group.playerName || getSettings().playerName || 'Jogador';
+      var groupMeta = { seed: App.group.seed, cfg: App.runConfig, hostName: App.group.hostName };
+      var res = addGroupResult(App.group.id, groupMeta, playerName, totalScore, dateIso);
+      App.lastRunSummary.groupResult = { groupId: App.group.id, playerName: playerName, isNewBest: res.isNewBest };
+    }
     goto('summary');
   }
 
@@ -1845,6 +2376,32 @@ p { line-height: 1.4; }
       listCard.appendChild(item);
     });
     screen.appendChild(listCard);
+
+    if (entry.groupResult) {
+      var groupCard = el('div', 'card');
+      groupCard.appendChild(el('h3', null, '👥 Modo grupo'));
+      groupCard.appendChild(el('p', null, 'A tua pontuação como ' + entry.groupResult.playerName + ' ficou registada no grupo.'));
+
+      var boardBtn = el('button', 'btn btn-primary btn-block', '🏆 Ver classificação do grupo');
+      boardBtn.addEventListener('click', function () { App.groupBoardId = entry.groupResult.groupId; goto('groupBoard'); });
+      groupCard.appendChild(boardBtn);
+
+      var joinUrl = buildJoinUrl(entry.groupResult.groupId);
+      if (joinUrl) {
+        groupCard.appendChild(el('p', 'small-note', '🔗 Convida mais pessoas para este desafio:'));
+        buildShareBlock(groupCard, joinUrl, 'Junta-te ao meu desafio no Praia de Jogos!');
+      }
+
+      var resultUrl = buildResultUrl(entry.groupResult.groupId, entry.groupResult.playerName, entry.totalScore, entry.date);
+      groupCard.appendChild(el('p', 'small-note', '📤 Envia o teu resultado a quem organizou o grupo:'));
+      buildShareBlock(groupCard, resultUrl, 'O meu resultado no Praia de Jogos: ' + entry.totalScore + ' pontos!');
+
+      var addResultBtn = el('button', 'btn btn-secondary btn-block', '📥 Adicionar resultado de alguém');
+      addResultBtn.addEventListener('click', function () { promptAddResult(entry.groupResult.groupId); render(); });
+      groupCard.appendChild(addResultBtn);
+
+      screen.appendChild(groupCard);
+    }
 
     var stack = el('div', 'stack');
     var again = el('button', 'btn btn-primary btn-block', '🔁 Jogar outra vez');
@@ -1939,12 +2496,201 @@ p { line-height: 1.4; }
     resetBtn.addEventListener('click', function () {
       if (window.confirm('Apagar historico e definicoes guardadas?')) {
         clearHistory();
-        saveSettings({ lastDifficulty: 'normal', lastCount: 4, lastMode: 'mix', lastSelected: [] });
+        saveGroups({});
+        saveSettings({ lastDifficulty: 'normal', lastCount: 4, lastMode: 'mix', lastSelected: [], lastTopic: 'misto', playerName: '' });
         toast('Dados apagados');
       }
     });
     dataCard.appendChild(resetBtn);
     screen.appendChild(dataCard);
+
+    root.appendChild(screen);
+  }
+
+  /* ============================= GRUPO / MULTIPLAYER ============================= */
+  function clearHash() {
+    try { history.replaceState(null, '', location.pathname + location.search); }
+    catch (e) { try { location.hash = ''; } catch (e2) {} }
+  }
+  function buildJoinUrl(groupId) {
+    var group = getGroup(groupId);
+    if (!group || !group.meta || !group.meta.seed) return null;
+    var payload = { v: 1, t: 'j', g: groupId, seed: group.meta.seed, cfg: group.meta.cfg, from: group.meta.hostName };
+    return location.origin + location.pathname + '#j=' + b64urlEncode(payload);
+  }
+  function buildResultUrl(groupId, name, score, dateIso) {
+    var payload = { v: 1, t: 'r', g: groupId, name: name, score: score, date: dateIso };
+    return location.origin + location.pathname + '#r=' + b64urlEncode(payload);
+  }
+  function buildShareBlock(container, url, shareText) {
+    var wrap = el('div', 'share-block');
+    var input = document.createElement('input');
+    input.type = 'text'; input.className = 'text-input'; input.readOnly = true; input.value = url;
+    wrap.appendChild(input);
+
+    var btnRow = el('div', 'chip-row');
+    var copyBtn = el('button', 'btn btn-secondary', '📋 Copiar link');
+    copyBtn.addEventListener('click', function () {
+      function done() { toast('Link copiado!'); }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(done).catch(function () {
+          input.focus(); input.select();
+          try { document.execCommand('copy'); } catch (e) {}
+          done();
+        });
+      } else {
+        input.focus(); input.select();
+        try { document.execCommand('copy'); } catch (e) {}
+        done();
+      }
+    });
+    btnRow.appendChild(copyBtn);
+    if (navigator.share) {
+      var shareBtn = el('button', 'btn btn-secondary', '📤 Partilhar');
+      shareBtn.addEventListener('click', function () {
+        navigator.share({ title: 'Praia de Jogos', text: shareText || 'Praia de Jogos', url: url }).catch(function () {});
+      });
+      btnRow.appendChild(shareBtn);
+    }
+    wrap.appendChild(btnRow);
+
+    var svg = makeQrSvg(url, 4);
+    if (svg) {
+      var qrWrap = el('div', 'qr-wrap');
+      qrWrap.innerHTML = svg;
+      wrap.appendChild(qrWrap);
+    }
+    container.appendChild(wrap);
+  }
+  function promptAddResult(groupId) {
+    var input = window.prompt('Cola aqui o link (ou codigo) de resultado que recebeste:');
+    if (!input) return;
+    var m = input.match(/#r=([^&\s]+)/);
+    var code = m ? m[1] : input.trim();
+    try {
+      var payload = b64urlDecode(code);
+      if (!payload || payload.t !== 'r' || payload.g !== groupId) { toast('Esse resultado nao pertence a este grupo'); return; }
+      var res = addGroupResult(groupId, null, payload.name, payload.score, payload.date);
+      toast(res.isNewBest ? 'Resultado de ' + payload.name + ' adicionado! 🎉' : 'Resultado de ' + payload.name + ' ja estava registado');
+    } catch (e) { toast('Nao consegui ler esse link de resultado'); }
+  }
+
+  function renderJoinChallenge() {
+    var screen = el('div', 'screen');
+    var top = el('div', 'topbar');
+    top.appendChild(el('div', 'emoji', '🎉'));
+    var tw = el('div', 'title'); tw.appendChild(el('h2', null, 'Desafio de grupo'));
+    top.appendChild(tw);
+    screen.appendChild(top);
+
+    var payload = App.pendingJoin;
+    if (!payload || !payload.cfg) {
+      var errCard = el('div', 'card');
+      errCard.appendChild(el('p', null, 'Este link de desafio ja nao e valido.'));
+      screen.appendChild(errCard);
+      var homeBtn2 = el('button', 'btn btn-primary btn-block', '🏠 Inicio');
+      homeBtn2.addEventListener('click', function () { App.pendingJoin = null; clearHash(); goto('home'); });
+      screen.appendChild(homeBtn2);
+      root.appendChild(screen);
+      return;
+    }
+
+    var cfg = payload.cfg;
+    var card = el('div', 'card');
+    card.appendChild(el('h3', null, (payload.from || 'Alguem') + ' convidou-te para uma run em grupo!'));
+    var t = topicById(cfg.topic || 'misto');
+    card.appendChild(el('p', null, cfg.count + ' desafios · ' + DIFF_LABELS[cfg.difficulty] + ' · ' + (cfg.mode === 'mix' ? 'Mix' : 'Personalizado') + ' · ' + t.emoji + ' ' + t.name));
+    card.appendChild(el('p', 'small-note', 'Todos os participantes recebem exatamente os mesmos desafios, para a comparacao ser justa.'));
+    screen.appendChild(card);
+
+    var settings = getSettings();
+    var formCard = el('div', 'card');
+    formCard.appendChild(el('label', 'field-label', 'O teu nome'));
+    var nameInput = document.createElement('input');
+    nameInput.type = 'text'; nameInput.className = 'text-input'; nameInput.placeholder = 'Ex: Gonçalo'; nameInput.maxLength = 24;
+    nameInput.value = settings.playerName || '';
+    formCard.appendChild(nameInput);
+    screen.appendChild(formCard);
+
+    var playBtn = el('button', 'btn btn-primary btn-block', '🎮 Jogar este desafio');
+    playBtn.addEventListener('click', function () {
+      var name = (nameInput.value || '').trim();
+      if (!name) { toast('Escreve o teu nome'); return; }
+      var draft = {
+        count: cfg.count, mode: cfg.mode, selected: cfg.selected, difficulty: cfg.difficulty,
+        topic: cfg.topic || 'misto', groupMode: 'grupo', playerName: name,
+      };
+      var groupOverride = { id: payload.g, seed: payload.seed, hostName: payload.from, isHost: false, playerName: name };
+      App.pendingJoin = null;
+      clearHash();
+      startRun(draft, groupOverride);
+    });
+    screen.appendChild(playBtn);
+
+    var skipBtn = el('button', 'btn btn-ghost btn-block', 'Ver classificacao sem jogar');
+    skipBtn.addEventListener('click', function () { App.groupBoardId = payload.g; App.pendingJoin = null; clearHash(); goto('groupBoard'); });
+    screen.appendChild(skipBtn);
+
+    root.appendChild(screen);
+  }
+
+  function renderGroupBoard() {
+    var screen = el('div', 'screen');
+    var top = el('div', 'topbar');
+    var backBtn = el('button', 'icon-btn', '←');
+    backBtn.addEventListener('click', function () { goto(App.lastRunSummary ? 'summary' : 'home'); });
+    top.appendChild(backBtn);
+    var tw = el('div', 'title'); tw.appendChild(el('h2', null, '🏆 Classificacao do grupo'));
+    top.appendChild(tw);
+    screen.appendChild(top);
+
+    var groupId = App.groupBoardId || (App.group && App.group.id);
+    if (!groupId) {
+      var emptyCard = el('div', 'card');
+      emptyCard.appendChild(el('p', null, 'Ainda nao fazes parte de nenhum grupo.'));
+      screen.appendChild(emptyCard);
+      root.appendChild(screen);
+      return;
+    }
+
+    var group = getGroup(groupId);
+    var ranked = rankedGroupEntries(groupId);
+    var card = el('div', 'card');
+    if (group && group.meta && group.meta.cfg) {
+      var cfg = group.meta.cfg;
+      var t = topicById(cfg.topic || 'misto');
+      card.appendChild(el('p', 'small-note', (group.meta.hostName ? 'Organizado por ' + group.meta.hostName + ' · ' : '') + cfg.count + ' desafios · ' + DIFF_LABELS[cfg.difficulty] + ' · ' + t.emoji + ' ' + t.name));
+    }
+    if (!ranked.length) {
+      card.appendChild(el('p', null, 'Ainda nao ha resultados registados neste dispositivo para este grupo.'));
+    } else {
+      ranked.forEach(function (r, i) {
+        var row = el('div', 'history-item');
+        var left = el('div');
+        var medal = i === 0 ? '🥇' : (i === 1 ? '🥈' : (i === 2 ? '🥉' : (i + 1) + '.'));
+        left.appendChild(el('div', null, medal + ' ' + r.name));
+        row.appendChild(left);
+        row.appendChild(el('div', 'hs', String(r.score)));
+        card.appendChild(row);
+      });
+    }
+    screen.appendChild(card);
+
+    var addBtn = el('button', 'btn btn-secondary btn-block', '📥 Adicionar resultado de alguem');
+    addBtn.addEventListener('click', function () { promptAddResult(groupId); render(); });
+    screen.appendChild(addBtn);
+
+    var joinUrl = buildJoinUrl(groupId);
+    if (joinUrl) {
+      var shareCard = el('div', 'card');
+      shareCard.appendChild(el('h3', null, '🔗 Convidar mais gente'));
+      buildShareBlock(shareCard, joinUrl, 'Junta-te ao meu desafio no Praia de Jogos!');
+      screen.appendChild(shareCard);
+    }
+
+    var homeBtn = el('button', 'btn btn-ghost btn-block', '🏠 Inicio');
+    homeBtn.addEventListener('click', function () { goto('home'); });
+    screen.appendChild(homeBtn);
 
     root.appendChild(screen);
   }
@@ -1964,6 +2710,15 @@ p { line-height: 1.4; }
     e.preventDefault();
     deferredPrompt = e;
     if (App.screen === 'home') render();
+  });
+
+  // Se a app ja estiver aberta (ex: PWA instalada, ou um separador reaproveitado pelo browser) e o
+  // utilizador tocar noutro link de convite/resultado, o browser pode so mudar o fragmento da URL
+  // sem recarregar a pagina (navegacao "same document"), pelo que boot() nao volta a correr. Este
+  // listener trata esse caso, reagindo sempre que o hash muda depois do arranque inicial.
+  window.addEventListener('hashchange', function () {
+    if (!root) return;
+    parseHashOnBoot();
   });
 
   function registerServiceWorker() {
@@ -1988,9 +2743,34 @@ p { line-height: 1.4; }
     } catch (e) {}
   }
 
+  function parseHashOnBoot() {
+    var hash = location.hash || '';
+    var mJoin = hash.match(/#j=([^&]+)/);
+    var mResult = hash.match(/#r=([^&]+)/);
+    if (mJoin) {
+      try {
+        var payload = b64urlDecode(mJoin[1]);
+        if (payload && payload.t === 'j' && payload.cfg) { App.pendingJoin = payload; goto('joinChallenge'); return true; }
+      } catch (e) {}
+    } else if (mResult) {
+      try {
+        var rpayload = b64urlDecode(mResult[1]);
+        if (rpayload && rpayload.t === 'r' && rpayload.g) {
+          var res = addGroupResult(rpayload.g, null, rpayload.name, rpayload.score, rpayload.date);
+          App.groupBoardId = rpayload.g;
+          clearHash();
+          goto('groupBoard');
+          toast(res.isNewBest ? 'Resultado de ' + rpayload.name + ' adicionado! 🎉' : 'Resultado ja estava registado.');
+          return true;
+        }
+      } catch (e) {}
+    }
+    return false;
+  }
+
   function boot() {
     root = document.getElementById('app');
-    goto('home');
+    if (!parseHashOnBoot()) goto('home');
     registerServiceWorker();
   }
 
@@ -1998,10 +2778,13 @@ p { line-height: 1.4; }
   else boot();
 
   window.__praiaCore = {
-    RAW_WORDS: RAW_WORDS, CROSSWORD_ENTRIES: CROSSWORD_ENTRIES, QUIZ_BANK: QUIZ_BANK, GAMES: GAMES,
+    RAW_WORDS: RAW_WORDS, CROSSWORD_ENTRIES: getCrosswordPool('misto'), QUIZ_BANK: QUIZ_BANK, GAMES: GAMES,
+    WORD_TOPICS: WORD_TOPICS, QUIZ_TOPICS: QUIZ_TOPICS, TOPICS: TOPICS,
+    getWordPool: getWordPool, getQuizPool: getQuizPool, getCrosswordPool: getCrosswordPool,
     generateSudoku: generateSudoku, generateWordSearch: generateWordSearch, generateCrossword: generateCrossword,
     toGrid: toGrid, shuffle: shuffle, formatTime: formatTime, clamp: clamp, computeScore: computeScore,
-    getHistory: getHistory, getSettings: getSettings,
+    getHistory: getHistory, getSettings: getSettings, seededRng: seededRng, b64urlEncode: b64urlEncode, b64urlDecode: b64urlDecode,
+    makeQrSvg: makeQrSvg, getGroups: function () { return getGroups(); },
   };
 })();
 
