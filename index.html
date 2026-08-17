@@ -379,6 +379,19 @@ p { line-height: 1.4; }
 .quiz-opt.correct { border-color: var(--ok); background: #e4f7ea; }
 .quiz-opt.wrong { border-color: var(--bad); background: #fbe6e4; }
 
+/* O Mais Proximo */
+.closest-unit { margin-top: -10px; margin-bottom: 14px; }
+.closest-input-row { display: flex; gap: 10px; margin-bottom: 14px; }
+.closest-input-row .closest-input { flex: 1; font-size: 1.1rem; font-weight: 700; text-align: center; }
+.closest-feedback { text-align: center; opacity: 0; transform: translateY(4px); transition: opacity .2s ease, transform .2s ease; min-height: 20px; }
+.closest-feedback.show { opacity: 1; transform: translateY(0); }
+.closest-answer { font-weight: 700; margin-bottom: 4px; }
+.closest-guess { font-size: .88rem; opacity: .75; margin-bottom: 8px; }
+.closest-badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: .9rem; }
+.closest-badge.great { background: #e4f7ea; color: var(--ok); }
+.closest-badge.ok { background: #fff3e0; color: #c97c1f; }
+.closest-badge.bad { background: #fbe6e4; color: var(--bad); }
+
 /* Memory */
 .memory-grid { display: grid; gap: 8px; margin: 0 auto; width: max-content; max-width: 100%; }
 .memory-card {
@@ -4345,6 +4358,343 @@ p { line-height: 1.4; }
     return normalizeTopics(topics).map(function (id) { var c = categoryById(id); return c.emoji + ' ' + c.name; }).join(' + ');
   }
 
+  /* ---------------------------- Perguntas: O Mais Proximo ----------------------------
+     Cada entrada: { q: pergunta, answer: numero correto (sempre positivo), unit: unidade
+     opcional a mostrar (ex: "km", "milhoes", "anos"), tolerance: margem absoluta que define
+     o que conta como "otimo palpite" (usada para calcular a pontuacao por proximidade). */
+  var CLOSEST_QUESTIONS = [
+  
+{"q":"A que altitude fica o cume do monte Evereste, a montanha mais alta do mundo, aproximadamente","answer":8849,"unit":"metros","tolerance":500},
+{"q":"Qual é o comprimento aproximado do rio Nilo, geralmente considerado o rio mais longo do mundo","answer":6650,"unit":"km","tolerance":600},
+{"q":"Qual é o comprimento aproximado do rio Amazonas, o rio com maior caudal do planeta","answer":6400,"unit":"km","tolerance":600},
+{"q":"Qual é a área aproximada do deserto do Sara, o maior deserto quente do mundo","answer":9200000,"unit":"km²","tolerance":1000000},
+{"q":"Qual é a área aproximada do oceano Pacífico, o maior oceano do mundo","answer":165000000,"unit":"km²","tolerance":20000000},
+{"q":"A que profundidade fica o ponto mais fundo da fossa das Marianas, o local mais profundo dos oceanos, aproximadamente","answer":10935,"unit":"metros","tolerance":800},
+{"q":"Quantos países existem atualmente no mundo, aproximadamente","answer":195,"unit":"países","tolerance":5},
+{"q":"Qual é a área aproximada da Rússia, o maior país do mundo","answer":17100000,"unit":"km²","tolerance":1500000},
+{"q":"Qual é a área aproximada da Gronelândia, a maior ilha do mundo","answer":2166000,"unit":"km²","tolerance":200000},
+{"q":"Qual é a área aproximada do Vaticano, o país mais pequeno do mundo","answer":0.49,"unit":"km²","tolerance":0.1},
+{"q":"A que velocidade máxima pode correr uma chita, o animal terrestre mais rápido do mundo, aproximadamente","answer":110,"unit":"km/h","tolerance":15},
+{"q":"Quantas toneladas pode pesar uma baleia-azul adulta, o maior animal do planeta, aproximadamente","answer":150,"unit":"toneladas","tolerance":25},
+{"q":"Qual é o comprimento aproximado de uma baleia-azul adulta","answer":25,"unit":"metros","tolerance":4},
+{"q":"Quantos quilogramas pode pesar um elefante-africano macho adulto, aproximadamente","answer":6000,"unit":"kg","tolerance":1000},
+{"q":"Qual é a altura aproximada de uma girafa macho adulta","answer":5.5,"unit":"metros","tolerance":0.5},
+{"q":"Quantos continentes existem, segundo o modelo mais usado","answer":7,"unit":"continentes","tolerance":0.5},
+{"q":"Quantos oceanos são normalmente reconhecidos no mundo","answer":5,"unit":"oceanos","tolerance":0.5},
+{"q":"Qual foi, aproximadamente, a temperatura mais alta alguma vez registada na Terra, no Vale da Morte, nos Estados Unidos","answer":56.7,"unit":"°C","tolerance":4},
+{"q":"Que percentagem da Antártida está coberta por gelo, aproximadamente","answer":98,"unit":"%","tolerance":2},
+{"q":"Qual é a área aproximada ocupada pela floresta amazónica","answer":5500000,"unit":"km²","tolerance":700000},
+{"q":"Quantas espécies de formigas são conhecidas atualmente pela ciência, aproximadamente","answer":12000,"unit":"espécies","tolerance":2000},
+{"q":"Qual é o comprimento aproximado da Grande Barreira de Coral, na Austrália, o maior sistema de recifes do mundo","answer":2300,"unit":"km","tolerance":300},
+{"q":"Qual é a profundidade máxima aproximada do lago Baikal, na Sibéria, o lago mais profundo do mundo","answer":1642,"unit":"metros","tolerance":150},
+{"q":"Quantas espécies de corais duros, os que formam recifes, são conhecidas atualmente, aproximadamente","answer":800,"unit":"espécies","tolerance":150},
+{"q":"Qual é a percentagem aproximada de salinidade do Mar Morto","answer":34,"unit":"%","tolerance":5},
+{"q":"Qual é a altura aproximada do monte Kilimanjaro, a montanha mais alta de África","answer":5895,"unit":"metros","tolerance":400},
+{"q":"Quantos quilómetros de costa tem o Canadá, o país com a linha costeira mais extensa do mundo, aproximadamente","answer":202080,"unit":"km","tolerance":25000},
+{"q":"Quantos ursos-polares existem atualmente na natureza, aproximadamente","answer":26000,"unit":"ursos-polares","tolerance":4000},
+{"q":"Quantos pandas-gigantes existem atualmente em estado selvagem, aproximadamente","answer":1900,"unit":"pandas","tolerance":300},
+{"q":"Quantos tigres existem atualmente em estado selvagem, aproximadamente","answer":5600,"unit":"tigres","tolerance":800},
+{"q":"Que percentagem da superfície da Terra está coberta por água, aproximadamente","answer":71,"unit":"%","tolerance":3},
+{"q":"Que percentagem da água doce do mundo se encontra sob a forma de gelo, aproximadamente","answer":69,"unit":"%","tolerance":5},
+{"q":"A que profundidade aproximada fica o ponto mais fundo do oceano Atlântico, na fossa de Porto Rico","answer":8400,"unit":"metros","tolerance":600},
+{"q":"Qual é o comprimento aproximado da cordilheira dos Andes, a maior cadeia montanhosa continental do mundo","answer":7000,"unit":"km","tolerance":700},
+{"q":"Qual é a altura aproximada do Salto Ángel, na Venezuela, a queda de água mais alta do mundo","answer":979,"unit":"metros","tolerance":80},
+{"q":"Qual é a largura aproximada das cataratas Vitória, entre a Zâmbia e o Zimbabué","answer":1708,"unit":"metros","tolerance":200},
+{"q":"Quantos vulcões considerados ativos existem atualmente no mundo, aproximadamente","answer":1500,"unit":"vulcões","tolerance":200},
+{"q":"Quantas espécies de tubarões são conhecidas atualmente, aproximadamente","answer":500,"unit":"espécies","tolerance":80},
+{"q":"A que velocidade de cruzeiro nada normalmente um tubarão-branco, aproximadamente","answer":25,"unit":"km/h","tolerance":8},
+{"q":"A que velocidade máxima pode correr um avestruz, a ave mais rápida a correr no mundo, aproximadamente","answer":70,"unit":"km/h","tolerance":10},
+{"q":"A que velocidade pode chegar um falcão-peregrino quando mergulha em voo picado, sendo o animal mais rápido do mundo, aproximadamente","answer":390,"unit":"km/h","tolerance":40},
+{"q":"Quantas espécies de aves são atualmente reconhecidas no mundo, aproximadamente","answer":10000,"unit":"espécies","tolerance":1500},
+{"q":"Quantas espécies de mamíferos são atualmente conhecidas no mundo, aproximadamente","answer":6400,"unit":"espécies","tolerance":1000},
+{"q":"Qual é a área aproximada do deserto de Gobi, na Ásia","answer":1300000,"unit":"km²","tolerance":200000},
+{"q":"Quantas ilhas tem a Indonésia, aproximadamente","answer":17000,"unit":"ilhas","tolerance":2000},
+{"q":"Quantos países existem atualmente no continente africano, aproximadamente","answer":54,"unit":"países","tolerance":2},
+{"q":"Quantos países existem atualmente no continente europeu, aproximadamente","answer":44,"unit":"países","tolerance":3},
+{"q":"A que altitude fica La Paz, na Bolívia, uma das capitais mais altas do mundo, aproximadamente","answer":3640,"unit":"metros","tolerance":300},
+{"q":"Qual é o comprimento aproximado do rio Danúbio, o segundo maior rio da Europa","answer":2850,"unit":"km","tolerance":300},
+{"q":"Qual é a profundidade aproximada do Grand Canyon, nos Estados Unidos","answer":1800,"unit":"metros","tolerance":200},
+{"q":"Quantos Grandes Lagos existem na América do Norte","answer":5,"unit":"lagos","tolerance":0.5},
+{"q":"Qual é a área aproximada do mar Cáspio, o maior lago do mundo","answer":371000,"unit":"km²","tolerance":40000},
+{"q":"Quantas espécies de pinguins existem atualmente, aproximadamente","answer":18,"unit":"espécies","tolerance":2},
+{"q":"Quantos quilogramas pode pesar um pinguim-imperador adulto, a maior espécie de pinguim do mundo, aproximadamente","answer":30,"unit":"kg","tolerance":6},
+{"q":"Quantos dragões-de-komodo existem atualmente em estado selvagem, aproximadamente","answer":3000,"unit":"dragões-de-komodo","tolerance":500},
+{"q":"Em que ano foi assinado o Tratado de Zamora, através do qual o Reino de Castela reconheceu a independência de Portugal?","answer":1143,"unit":"","tolerance":5},
+{"q":"Em que ano foi conquistada Lisboa aos mouros pelas tropas de D. Afonso Henriques, com o apoio de cruzados?","answer":1147,"unit":"","tolerance":5},
+{"q":"Em que ano chegou Pedro Álvares Cabral ao território que viria a ser o Brasil?","answer":1500,"unit":"","tolerance":3},
+{"q":"Em que ano chegou Vasco da Gama a Calecute, na Índia, completando a rota marítima para o Oriente?","answer":1498,"unit":"","tolerance":3},
+{"q":"Em que ano os portugueses conquistaram a cidade de Ceuta, no Norte de África?","answer":1415,"unit":"","tolerance":5},
+{"q":"Em que ano se travou a Batalha de Aljubarrota, que garantiu a independência de Portugal face a Castela?","answer":1385,"unit":"","tolerance":5},
+{"q":"Com que idade morreu o Infante D. Henrique, conhecido como \"o Navegador\"?","answer":66,"unit":"anos","tolerance":5},
+{"q":"Em que ano teve início a Restauração da Independência de Portugal, com a aclamação de D. João IV?","answer":1640,"unit":"","tolerance":3},
+{"q":"Em que ano foi implantada a República em Portugal, pondo fim à Monarquia?","answer":1910,"unit":"","tolerance":2},
+{"q":"Em que ano ocorreu a Revolução dos Cravos, que derrubou o Estado Novo?","answer":1974,"unit":"","tolerance":1},
+{"q":"Em que ano foi assinado o Tratado de Tordesilhas, que dividiu as terras por descobrir entre Portugal e Espanha?","answer":1494,"unit":"","tolerance":5},
+{"q":"Em que ano teve início a construção da Torre de Belém, em Lisboa?","answer":1514,"unit":"","tolerance":5},
+{"q":"Em que ano teve início a construção do Mosteiro dos Jerónimos, em Lisboa?","answer":1501,"unit":"","tolerance":5},
+{"q":"Durante quantos anos vigorou a União Ibérica, período em que Portugal foi governado pelos reis de Espanha?","answer":60,"unit":"anos","tolerance":5},
+{"q":"Com que idade morreu o rei D. Sebastião, na Batalha de Alcácer Quibir?","answer":24,"unit":"anos","tolerance":3},
+{"q":"Em que ano foi fundada a Universidade de Coimbra, a mais antiga de Portugal?","answer":1290,"unit":"","tolerance":10},
+{"q":"Quantas caravelas e naus compunham a frota de Pedro Álvares Cabral na viagem que chegou ao Brasil?","answer":13,"unit":"navios","tolerance":2},
+{"q":"Durante quantos anos esteve em vigor a Inquisição em Portugal, entre a sua criação e a sua extinção?","answer":285,"unit":"anos","tolerance":20},
+{"q":"Com que idade morreu o poeta Luís de Camões, autor de \"Os Lusíadas\"?","answer":56,"unit":"anos","tolerance":5},
+{"q":"Aproximadamente quantos soldados portugueses combateram na Batalha de Aljubarrota?","answer":6500,"unit":"soldados","tolerance":1000},
+{"q":"Em que ano se travou a Batalha de São Mamede, que opôs D. Afonso Henriques à sua mãe, D. Teresa?","answer":1128,"unit":"","tolerance":5},
+{"q":"Em que ano chegaram os navegadores portugueses ao arquipélago da Madeira?","answer":1419,"unit":"","tolerance":5},
+{"q":"Em que ano chegaram os navegadores portugueses ao arquipélago dos Açores?","answer":1427,"unit":"","tolerance":5},
+{"q":"Durante quantos anos reinou D. João II, conhecido como o \"Príncipe Perfeito\"?","answer":14,"unit":"anos","tolerance":3},
+{"q":"Com que idade morreu D. Afonso Henriques, o primeiro rei de Portugal?","answer":76,"unit":"anos","tolerance":5},
+{"q":"Em que ano ocorreu o grande terramoto que destruiu grande parte de Lisboa?","answer":1755,"unit":"","tolerance":2},
+{"q":"Há quantos anos, aproximadamente, foi concluída a construção da Grande Pirâmide de Gizé?","answer":4586,"unit":"anos","tolerance":150},
+{"q":"Aproximadamente quantos anos demorou a construção da Grande Pirâmide de Gizé?","answer":20,"unit":"anos","tolerance":10},
+{"q":"Qual era, aproximadamente, a altura original da Grande Pirâmide de Gizé, em metros?","answer":146,"unit":"m","tolerance":10},
+{"q":"Há quantos anos, aproximadamente, foi fundada a cidade de Roma, segundo a tradição?","answer":2779,"unit":"anos","tolerance":100},
+{"q":"Durante quantos anos existiu, aproximadamente, o Império Bizantino, desde a sua fundação até à queda de Constantinopla?","answer":1123,"unit":"anos","tolerance":100},
+{"q":"Durante quantos anos durou, aproximadamente, o Império Otomano, desde a sua fundação até à sua extinção?","answer":623,"unit":"anos","tolerance":50},
+{"q":"Em que ano caiu Constantinopla nas mãos dos turcos otomanos, marcando o fim do Império Bizantino?","answer":1453,"unit":"","tolerance":5},
+{"q":"Com que idade foi assassinado Júlio César, no Senado romano?","answer":55,"unit":"anos","tolerance":5},
+{"q":"Em que ano ocorreu a erupção do Vesúvio que destruiu Pompeia e Herculano?","answer":79,"unit":"","tolerance":5},
+{"q":"Aproximadamente quantos anos demorou a construção do Coliseu de Roma?","answer":8,"unit":"anos","tolerance":3},
+{"q":"Durante quantos anos governou a dinastia Ming na China?","answer":276,"unit":"anos","tolerance":20},
+{"q":"Qual é, aproximadamente, o comprimento total da Grande Muralha da China, em quilómetros?","answer":21196,"unit":"km","tolerance":3000},
+{"q":"Com que idade morreu Alexandre, o Grande?","answer":32,"unit":"anos","tolerance":3},
+{"q":"Com que idade morreu o faraó Tutancâmon?","answer":19,"unit":"anos","tolerance":3},
+{"q":"Em que ano foi descoberto o túmulo de Tutancâmon, no Vale dos Reis?","answer":1922,"unit":"","tolerance":2},
+{"q":"Há quantos anos, aproximadamente, se realizaram os primeiros Jogos Olímpicos da Antiguidade, na Grécia?","answer":2802,"unit":"anos","tolerance":100},
+{"q":"Aproximadamente quantos anos demorou a construção do Taj Mahal, na Índia?","answer":22,"unit":"anos","tolerance":5},
+{"q":"Aproximadamente quantos trabalhadores participaram na construção do Taj Mahal?","answer":20000,"unit":"trabalhadores","tolerance":5000},
+{"q":"Quantos elefantes de guerra terá levado Aníbal na sua travessia dos Alpes rumo a Roma?","answer":37,"unit":"elefantes","tolerance":5},
+{"q":"Em que ano chegou Cristóvão Colombo às Américas, na sua primeira viagem?","answer":1492,"unit":"","tolerance":2},
+{"q":"Quantos navios compunham a frota de Cristóvão Colombo na sua primeira viagem?","answer":3,"unit":"navios","tolerance":1},
+{"q":"Durante quantos anos se prolongou a Guerra dos Cem Anos, entre Inglaterra e França?","answer":116,"unit":"anos","tolerance":5},
+{"q":"Em que ano, aproximadamente, Johannes Gutenberg desenvolveu a imprensa de tipos móveis na Europa?","answer":1440,"unit":"","tolerance":10},
+{"q":"Em que ano teve início a Revolução Francesa, com a Tomada da Bastilha?","answer":1789,"unit":"","tolerance":2},
+{"q":"Em que ano se travou a Batalha de Waterloo, que derrotou definitivamente Napoleão?","answer":1815,"unit":"","tolerance":2},
+{"q":"Com que idade morreu Napoleão Bonaparte, exilado na ilha de Santa Helena?","answer":51,"unit":"anos","tolerance":3},
+{"q":"Em que ano, aproximadamente, foi construída a cidade inca de Machu Picchu?","answer":1450,"unit":"","tolerance":30},
+{"q":"Há quantos anos, aproximadamente, começou a ser erguido o monumento megalítico de Stonehenge?","answer":5026,"unit":"anos","tolerance":300},
+{"q":"Quantos anos durou, aproximadamente, a viagem de Marco Polo entre Veneza e a China, incluindo o regresso?","answer":24,"unit":"anos","tolerance":3},
+{"q":"Por quantos milhões de euros o Paris Saint-Germain contratou o brasileiro Neymar ao FC Barcelona, em 2017, tornando-se a transferência mais cara da história do futebol?","answer":222,"unit":"milhões de euros","tolerance":15},
+{"q":"Com que idade Kylian Mbappé se tornou campeão do Mundo, ao vencer o Mundial de 2018 pela seleção francesa?","answer":19,"unit":"anos","tolerance":1},
+{"q":"Até ao final de 2024, quantas taças da Liga dos Campeões o Real Madrid já tinha conquistado ao todo?","answer":15,"unit":"troféus","tolerance":1},
+{"q":"Quantos golos marcou Cristiano Ronaldo ao longo da sua carreira na Liga dos Campeões, um recorde que ainda hoje detém?","answer":140,"unit":"golos","tolerance":8},
+{"q":"Quantas Bolas de Ouro tinha Lionel Messi conquistado até 2023, um recorde absoluto no futebol mundial?","answer":8,"unit":"Bolas de Ouro","tolerance":1},
+{"q":"Quantos golos marcou o alemão Miroslav Klose ao longo da sua carreira em fases finais de Campeonatos do Mundo, um recorde que ninguém superou até hoje?","answer":16,"unit":"golos","tolerance":2},
+{"q":"Que idade tinha Cristiano Ronaldo quando Portugal conquistou o seu primeiro Campeonato da Europa, em 2016?","answer":31,"unit":"anos","tolerance":1},
+{"q":"Quantos espectadores estiveram presentes no Estádio de Lusail para assistir à final do Mundial 2022, entre a Argentina e a França?","answer":88966,"unit":"espectadores","tolerance":3000},
+{"q":"Quanto passou Neymar a receber, em milhões de euros por ano, ao assinar pelo clube saudita Al-Hilal em 2023?","answer":250,"unit":"milhões de euros","tolerance":20},
+{"q":"Quantos golos marcou Kylian Mbappé ao longo do Mundial 2022, número que lhe valeu a Bota de Ouro do torneio?","answer":8,"unit":"golos","tolerance":1},
+{"q":"Quantos lugares tinha, na sua configuração histórica, o Camp Nou, estádio do FC Barcelona, antes das obras de remodelação iniciadas em 2023?","answer":99354,"unit":"lugares","tolerance":3000},
+{"q":"Qual é a capacidade oficial, em número de lugares, do novo estádio de Wembley, em Londres, reinaugurado em 2007?","answer":90000,"unit":"lugares","tolerance":3000},
+{"q":"Quantos golos marcou o norueguês Erling Haaland na sua primeira época em Inglaterra (2022-23), um recorde da Premier League numa só temporada?","answer":36,"unit":"golos","tolerance":3},
+{"q":"Quantos golos marcou Robert Lewandowski na Bundesliga alemã durante a época 2020-21, estabelecendo um novo recorde de golos numa só época?","answer":41,"unit":"golos","tolerance":3},
+{"q":"Em que ano é que o FC Barcelona, orientado por Pep Guardiola, se tornou o primeiro clube europeu a conquistar seis troféus principais no mesmo ano?","answer":2009,"unit":"","tolerance":1},
+{"q":"Quantas medalhas de ouro olímpicas conquistou o nadador norte-americano Michael Phelps ao longo de toda a carreira?","answer":23,"unit":"medalhas de ouro","tolerance":2},
+{"q":"Contando ouros, pratas e bronzes, quantas medalhas olímpicas ganhou Michael Phelps no total, ao longo da carreira?","answer":28,"unit":"medalhas","tolerance":2},
+{"q":"Quantas medalhas de ouro olímpicas tem oficialmente o jamaicano Usain Bolt no seu currículo, depois de uma delas lhe ter sido retirada por doping de um colega de equipa?","answer":8,"unit":"medalhas de ouro","tolerance":1},
+{"q":"Quantas medalhas olímpicas, no total, tinha a ginasta norte-americana Simone Biles conquistado depois dos Jogos de Paris 2024?","answer":11,"unit":"medalhas","tolerance":1},
+{"q":"Quantas medalhas de ouro olímpicas tinha a nadadora Katie Ledecky conquistado até aos Jogos de Paris 2024?","answer":9,"unit":"medalhas de ouro","tolerance":1},
+{"q":"Somando todas as cores, quantas medalhas olímpicas tinha Katie Ledecky no total até Paris 2024, tornando-se a nadadora norte-americana mais medalhada de sempre?","answer":14,"unit":"medalhas","tolerance":2},
+{"q":"Com quantos metros o sueco Armand Duplantis bateu o recorde do mundo do salto com vara nos Jogos Olímpicos de Paris 2024?","answer":6.25,"unit":"metros","tolerance":0.1},
+{"q":"Quantos títulos do Grand Slam em singulares masculinos tinha o sérvio Novak Djokovic conquistado até 2024?","answer":24,"unit":"títulos","tolerance":1},
+{"q":"Quantos títulos do Grand Slam conquistou o espanhol Rafael Nadal ao longo de toda a carreira?","answer":22,"unit":"títulos","tolerance":1},
+{"q":"Quantos títulos do Grand Slam conquistou o suíço Roger Federer ao longo de toda a carreira?","answer":20,"unit":"títulos","tolerance":1},
+{"q":"Quantos títulos de Grand Slam em singulares venceu Serena Williams durante a era aberta do ténis?","answer":23,"unit":"títulos","tolerance":1},
+{"q":"Com que idade Roger Federer se retirou do ténis profissional, em 2022, depois de jogar a Laver Cup?","answer":41,"unit":"anos","tolerance":1},
+{"q":"Em 2024, quantos milhões de libras esterlinas somava, pela primeira vez na história, a bolsa total de prémios de Wimbledon?","answer":50,"unit":"milhões de libras","tolerance":3},
+{"q":"Com quantos pontos, exatamente, LeBron James ultrapassou Kareem Abdul-Jabbar como o maior marcador da história da NBA, em fevereiro de 2023?","answer":38388,"unit":"pontos","tolerance":200},
+{"q":"Quantos pontos, ao todo, marcou Michael Jordan ao longo de toda a carreira na fase regular da NBA?","answer":32292,"unit":"pontos","tolerance":500},
+{"q":"Quantos jogos venceram os Golden State Warriors na época regular de 2015-16, um recorde absoluto da NBA?","answer":73,"unit":"vitórias","tolerance":2},
+{"q":"Quantos pontos marcou Kobe Bryant num único jogo da NBA, em 2006, o segundo maior registo de sempre?","answer":81,"unit":"pontos","tolerance":5},
+{"q":"Que idade tinha Michael Jordan quando conquistou o seu primeiro título da NBA, em 1991?","answer":28,"unit":"anos","tolerance":1},
+{"q":"Quantos títulos da NBA conquistou Michael Jordan ao longo de toda a carreira, todos com os Chicago Bulls?","answer":6,"unit":"títulos","tolerance":1},
+{"q":"Quantos campeonatos do mundo de Fórmula 1 conquistou o alemão Michael Schumacher ao longo da carreira?","answer":7,"unit":"títulos","tolerance":1},
+{"q":"Quantos campeonatos do mundo de Fórmula 1 já conquistou o britânico Lewis Hamilton, igualando o recorde de Michael Schumacher?","answer":7,"unit":"títulos","tolerance":1},
+{"q":"Quantas corridas venceu Max Verstappen na época de 2023 de Fórmula 1, um recorde absoluto de vitórias numa só temporada?","answer":19,"unit":"vitórias","tolerance":1},
+{"q":"Qual foi a velocidade máxima mais elevada já registada por um carro de Fórmula 1 em pista, atingida por Valtteri Bottas em 2016, no Grande Prémio do México?","answer":372.5,"unit":"km/h","tolerance":10},
+{"q":"Em quantos segundos Usain Bolt correu os 100 metros em Berlim, em 2009, estabelecendo o atual recorde do mundo?","answer":9.58,"unit":"segundos","tolerance":0.1},
+{"q":"Em quantos segundos Usain Bolt correu os 200 metros em Berlim, em 2009, também um recorde do mundo que ainda hoje resiste?","answer":19.19,"unit":"segundos","tolerance":0.2},
+{"q":"Em quantos segundos o sul-africano Wayde van Niekerk correu os 400 metros nos Jogos Olímpicos do Rio, em 2016, batendo o recorde do mundo?","answer":43.03,"unit":"segundos","tolerance":0.3},
+{"q":"Em quantos segundos o queniano David Rudisha correu os 800 metros na final olímpica de Londres 2012, estabelecendo o atual recorde do mundo?","answer":100.91,"unit":"segundos","tolerance":1},
+{"q":"Com quantos metros o norte-americano Mike Powell bateu o recorde do mundo do salto em comprimento, em Tóquio, em 1991?","answer":8.95,"unit":"metros","tolerance":0.1},
+{"q":"Em quantos segundos a norte-americana Florence Griffith-Joyner correu os 100 metros em 1988, estabelecendo um recorde do mundo feminino que ainda hoje não foi batido?","answer":10.49,"unit":"segundos","tolerance":0.1},
+{"q":"Quantos segundos, ao todo, demorou o queniano Kelvin Kiptum a completar a Maratona de Chicago de 2023, estabelecendo o atual recorde do mundo masculino?","answer":7235,"unit":"segundos","tolerance":60},
+{"q":"Quantos segundos, ao todo, demorou a queniana Ruth Chepngetich a completar a Maratona de Chicago de 2024, batendo o recorde do mundo feminino?","answer":7796,"unit":"segundos","tolerance":60},
+{"q":"Quantos segundos, ao todo, demorou Eliud Kipchoge a completar a maratona em Viena, em 2019, na experiência que o tornou o primeiro homem a correr a distância abaixo das duas horas?","answer":7180,"unit":"segundos","tolerance":30},
+{"q":"Quantos milhões de telespectadores, em média, assistiram ao Super Bowl de 2024 nos Estados Unidos, um recorde histórico de audiências televisivas?","answer":123.7,"unit":"milhões","tolerance":5},
+{"q":"Em quantos segundos Usain Bolt venceu a final olímpica dos 100 metros em Pequim, em 2008, já a celebrar antes da linha de meta?","answer":9.69,"unit":"segundos","tolerance":0.1},
+{"q":"Com quantos metros o cubano Javier Sotomayor bateu o recorde do mundo do salto em altura, em 1993, uma marca que ainda hoje ninguém superou?","answer":2.45,"unit":"metros","tolerance":0.03},
+{"q":"Com quantos metros o britânico Jonathan Edwards bateu o recorde do mundo do triplo salto, em 1995, uma marca que ainda hoje resiste?","answer":18.29,"unit":"metros","tolerance":0.3},
+{"q":"Em que ano é que a Argentina de Lionel Messi conquistou a Copa América, pondo fim a um longo período sem títulos maiores da seleção?","answer":2021,"unit":"","tolerance":1},
+{"q":"Com quantos metros o norte-americano Ryan Crouser bateu o recorde do mundo do lançamento do peso, em 2023?","answer":23.56,"unit":"metros","tolerance":0.5},
+{"q":"Por quantos milhões de euros o Real Madrid contratou o francês Zinedine Zidane à Juventus, em 2001, um valor recorde na época?","answer":77.5,"unit":"milhões de euros","tolerance":8},
+{"q":"Por quantos milhões de euros o Real Madrid contratou Cristiano Ronaldo ao Manchester United, em 2009, um valor recorde mundial na altura?","answer":94,"unit":"milhões de euros","tolerance":8},
+{"q":"Qual é a distância média, em quilómetros, entre a Terra e a Lua?","answer":384400,"unit":"km","tolerance":45000},
+{"q":"Qual é a distância média, em quilómetros, entre a Terra e o Sol?","answer":149600000,"unit":"km","tolerance":18000000},
+{"q":"Qual é o diâmetro da Terra, em quilómetros?","answer":12742,"unit":"km","tolerance":1500},
+{"q":"Qual é o diâmetro do Sol, em quilómetros?","answer":1392000,"unit":"km","tolerance":165000},
+{"q":"Qual é o diâmetro da Lua, em quilómetros?","answer":3474,"unit":"km","tolerance":400},
+{"q":"A que velocidade viaja a luz no vácuo, em quilómetros por segundo?","answer":299792,"unit":"km/s","tolerance":8000},
+{"q":"Há quantos milhares de milhões de anos se estima que o universo tenha nascido com o Big Bang?","answer":13.8,"unit":"mil milhões de anos","tolerance":1.5},
+{"q":"Qual é a idade estimada da Terra, em milhares de milhões de anos?","answer":4.54,"unit":"mil milhões de anos","tolerance":0.5},
+{"q":"A que distância, em anos-luz, fica a estrela Proxima Centauri, a mais próxima do Sol?","answer":4.24,"unit":"anos-luz","tolerance":0.5},
+{"q":"Aproximadamente quantas luas confirmadas tem atualmente o planeta Júpiter?","answer":100,"unit":"luas","tolerance":15},
+{"q":"Aproximadamente quantas luas confirmadas tem atualmente o planeta Saturno?","answer":285,"unit":"luas","tolerance":40},
+{"q":"Em que ano foi lançado o Sputnik 1, o primeiro satélite artificial da história?","answer":1957,"unit":"","tolerance":1},
+{"q":"Em que ano é que o ser humano pisou a superfície da Lua pela primeira vez?","answer":1969,"unit":"","tolerance":1},
+{"q":"Qual é a temperatura média da superfície de Vénus, em graus Celsius?","answer":464,"unit":"°C","tolerance":40},
+{"q":"Aproximadamente quantos satélites da constelação Starlink estão atualmente em órbita?","answer":10000,"unit":"satélites","tolerance":2000},
+{"q":"Em que ano foi lançado o telescópio espacial Hubble?","answer":1990,"unit":"","tolerance":1},
+{"q":"Quantos ossos tem o corpo humano adulto?","answer":206,"unit":"ossos","tolerance":2},
+{"q":"Aproximadamente quantos ossos tem o corpo de um bebé recém-nascido?","answer":270,"unit":"ossos","tolerance":15},
+{"q":"Aproximadamente quantos músculos existem no corpo humano?","answer":600,"unit":"músculos","tolerance":60},
+{"q":"Quantos dentes permanentes tem um ser humano adulto?","answer":32,"unit":"dentes","tolerance":1},
+{"q":"Qual é a temperatura corporal média de uma pessoa saudável, em graus Celsius?","answer":37,"unit":"°C","tolerance":0.5},
+{"q":"Que percentagem do corpo humano adulto é, em média, composta por água?","answer":60,"unit":"%","tolerance":6},
+{"q":"Quantas vezes bate, em média, o coração de um adulto em repouso, por minuto?","answer":70,"unit":"batimentos por minuto","tolerance":10},
+{"q":"Quantos litros de sangue tem, em média, o corpo de um adulto?","answer":5,"unit":"litros","tolerance":1},
+{"q":"Quantas vértebras tem a coluna vertebral humana?","answer":33,"unit":"vértebras","tolerance":2},
+{"q":"Quantos dias vive, em média, um glóbulo vermelho no corpo humano?","answer":120,"unit":"dias","tolerance":15},
+{"q":"Qual é o peso médio do cérebro de um ser humano adulto, em gramas?","answer":1400,"unit":"gramas","tolerance":150},
+{"q":"Aproximadamente quantos milhares de milhões de neurónios tem o cérebro humano?","answer":86,"unit":"mil milhões","tolerance":10},
+{"q":"Quantos cromossomas existem, em condições normais, nas células humanas?","answer":46,"unit":"cromossomas","tolerance":1},
+{"q":"A que velocidade viaja o som no ar, ao nível do mar, em metros por segundo?","answer":343,"unit":"m/s","tolerance":25},
+{"q":"A que velocidade viaja o som na água, em metros por segundo?","answer":1480,"unit":"m/s","tolerance":120},
+{"q":"A que temperatura ferve a água ao nível do mar, em graus Celsius?","answer":100,"unit":"°C","tolerance":3},
+{"q":"A que temperatura funde o ferro, em graus Celsius?","answer":1538,"unit":"°C","tolerance":100},
+{"q":"Quantos elementos químicos constam atualmente da tabela periódica?","answer":118,"unit":"elementos","tolerance":2},
+{"q":"Qual é o valor aproximado da aceleração da gravidade à superfície da Terra, em metros por segundo ao quadrado?","answer":9.8,"unit":"m/s²","tolerance":0.3},
+{"q":"A que temperatura, em kelvin, ferve o azoto líquido?","answer":77,"unit":"K","tolerance":5},
+{"q":"Qual é o número atómico do ouro na tabela periódica?","answer":79,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a Google?","answer":1998,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a Apple?","answer":1976,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundado o Facebook?","answer":2004,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a Microsoft?","answer":1975,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a Amazon?","answer":1994,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a Netflix?","answer":1997,"unit":"","tolerance":1},
+{"q":"Em que ano foi lançado o primeiro iPhone?","answer":2007,"unit":"","tolerance":1},
+{"q":"Em que ano foi lançado o Windows 95?","answer":1995,"unit":"","tolerance":1},
+{"q":"Em que ano foi criada a Wikipédia?","answer":2001,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundado o Instagram?","answer":2010,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundado o WhatsApp?","answer":2009,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a NASA?","answer":1958,"unit":"","tolerance":1},
+{"q":"Em que ano foi fundada a SpaceX?","answer":2002,"unit":"","tolerance":1},
+{"q":"Em que ano foi lançada a primeira consola PlayStation?","answer":1994,"unit":"","tolerance":1},
+{"q":"Aproximadamente quantos milhares de milhões de utilizadores ativos tem o WhatsApp por mês?","answer":3,"unit":"mil milhões","tolerance":0.4},
+{"q":"Aproximadamente quantos milhares de milhões de utilizadores ativos tem o YouTube por mês?","answer":2.7,"unit":"mil milhões","tolerance":0.4},
+{"q":"Aproximadamente quantos milhões de subscritores tinha a Netflix em todo o mundo no final de 2025?","answer":325,"unit":"milhões","tolerance":35},
+{"q":"Quantos transístores tinha o Intel 4004, o primeiro microprocessador comercial da história?","answer":2300,"unit":"transístores","tolerance":300},
+{"q":"Quantos milhões de dólares arrecadou \"Titanic\" (1997) nas bilheteiras mundiais ao longo de toda a sua exibição, incluindo reposições, aproximadamente?","answer":2260,"unit":"milhões de dólares","tolerance":150},
+{"q":"Qual foi a receita mundial de bilheteira do filme \"Avatar\" (2009), aproximadamente, em milhões de dólares?","answer":2900,"unit":"milhões de dólares","tolerance":200},
+{"q":"Quanto arrecadou \"Vingadores: Ultimato\" (2019) nas bilheteiras de todo o mundo, aproximadamente, em milhões de dólares?","answer":2800,"unit":"milhões de dólares","tolerance":150},
+{"q":"Qual foi a receita mundial de bilheteira de \"Star Wars: O Despertar da Força\" (2015), aproximadamente, em milhões de dólares?","answer":2070,"unit":"milhões de dólares","tolerance":150},
+{"q":"Quantos milhões de dólares arrecadou \"O Cavaleiro das Trevas\" (2008) nas bilheteiras mundiais, aproximadamente?","answer":1005,"unit":"milhões de dólares","tolerance":100},
+{"q":"Qual foi a receita mundial de bilheteira de \"Homem-Aranha: Sem Regresso a Casa\" (2021), aproximadamente, em milhões de dólares?","answer":1920,"unit":"milhões de dólares","tolerance":150},
+{"q":"Quanto arrecadou \"Harry Potter e a Pedra Filosofal\" nas bilheteiras mundiais, no seu lançamento original de 2001, aproximadamente (em milhões de dólares)?","answer":975,"unit":"milhões de dólares","tolerance":80},
+{"q":"Qual foi a receita mundial de bilheteira do filme \"Frozen - O Reino do Gelo\" (2013), aproximadamente, em milhões de dólares?","answer":1284,"unit":"milhões de dólares","tolerance":100},
+{"q":"Quanto arrecadou \"O Rei Leão\" (1994) nas bilheteiras mundiais, no seu lançamento original, aproximadamente (em milhões de dólares)?","answer":968,"unit":"milhões de dólares","tolerance":80},
+{"q":"Qual foi a receita mundial de bilheteira de \"Pantera Negra\" (2018), aproximadamente, em milhões de dólares?","answer":1350,"unit":"milhões de dólares","tolerance":100},
+{"q":"Quanto arrecadou \"Os Vingadores\" (2012) nas bilheteiras de todo o mundo, aproximadamente, em milhões de dólares?","answer":1519,"unit":"milhões de dólares","tolerance":120},
+{"q":"Qual foi a receita mundial de bilheteira do filme \"Joker\" (2019), aproximadamente, em milhões de dólares?","answer":1074,"unit":"milhões de dólares","tolerance":100},
+{"q":"Quantos milhões de dólares custou, aproximadamente, a produção do filme \"Titanic\" (1997)?","answer":200,"unit":"milhões de dólares","tolerance":20},
+{"q":"Quantos minutos dura o filme \"Titanic\" (1997), aproximadamente?","answer":194,"unit":"minutos","tolerance":8},
+{"q":"Quantos minutos dura a versão de cinema de \"O Senhor dos Anéis: O Regresso do Rei\" (2003), aproximadamente?","answer":201,"unit":"minutos","tolerance":8},
+{"q":"Quantos minutos dura o filme \"Jurassic Park\" (1993), aproximadamente?","answer":127,"unit":"minutos","tolerance":6},
+{"q":"Quantos minutos dura o filme de animação \"O Rei Leão\" (1994), aproximadamente?","answer":88,"unit":"minutos","tolerance":5},
+{"q":"Quantos minutos dura o filme \"Vingadores: Ultimato\" (2019), aproximadamente?","answer":181,"unit":"minutos","tolerance":8},
+{"q":"Quantos minutos dura o filme \"Joker\" (2019), aproximadamente?","answer":122,"unit":"minutos","tolerance":6},
+{"q":"Quantos episódios tem, ao todo, a série \"Friends\" (1994-2004)?","answer":236,"unit":"episódios","tolerance":6},
+{"q":"Em que ano estreou a série \"Friends\" na televisão?","answer":1994,"unit":"","tolerance":1},
+{"q":"Quantos episódios tem, ao todo, a série \"Breaking Bad\"?","answer":62,"unit":"episódios","tolerance":3},
+{"q":"Quantos episódios tem, ao todo, a série \"Game of Thrones\"?","answer":73,"unit":"episódios","tolerance":3},
+{"q":"Em que ano estreou a primeira temporada de \"Os Simpsons\" na televisão?","answer":1989,"unit":"","tolerance":1},
+{"q":"Quantos episódios tem, ao todo, a versão norte-americana da série \"The Office\"?","answer":201,"unit":"episódios","tolerance":5},
+{"q":"Quantos episódios tem, ao todo, a série \"Lost\"?","answer":121,"unit":"episódios","tolerance":4},
+{"q":"Quantos episódios tem, ao todo, a sitcom \"Seinfeld\"?","answer":180,"unit":"episódios","tolerance":5},
+{"q":"Em que ano estreou a primeira temporada de \"Stranger Things\" na Netflix?","answer":2016,"unit":"","tolerance":1},
+{"q":"Quantos milhões de contas assistiram a \"Round 6\" (Squid Game) nos primeiros 28 dias após a estreia, segundo a Netflix, aproximadamente?","answer":142,"unit":"milhões de contas","tolerance":15},
+{"q":"Quantos episódios tem, ao todo, a série \"The Big Bang Theory\"?","answer":279,"unit":"episódios","tolerance":8},
+{"q":"Quantos episódios tem, ao todo, a série \"La Casa de Papel\" (Money Heist), somando todas as partes, aproximadamente?","answer":48,"unit":"episódios","tolerance":6},
+{"q":"Quantos episódios tem, ao todo, a série \"How I Met Your Mother\"?","answer":208,"unit":"episódios","tolerance":6},
+{"q":"Quantos Óscares venceu o filme \"Titanic\" (1997) na cerimónia da Academia?","answer":11,"unit":"Óscares","tolerance":1},
+{"q":"Quantos Óscares venceu \"O Senhor dos Anéis: O Regresso do Rei\" (2003)?","answer":11,"unit":"Óscares","tolerance":1},
+{"q":"Quantos Óscares venceu o filme sul-coreano \"Parasitas\" (2019)?","answer":4,"unit":"Óscares","tolerance":1},
+{"q":"Quantos Óscares venceu o filme \"La La Land\" na cerimónia de 2017?","answer":6,"unit":"Óscares","tolerance":1},
+{"q":"Quantos Óscares venceu \"Pantera Negra\" (2018)?","answer":3,"unit":"Óscares","tolerance":1},
+{"q":"Quantos prémios Grammy tem Beyoncé no total, o recorde absoluto de sempre para qualquer artista?","answer":35,"unit":"prémios Grammy","tolerance":3},
+{"q":"Quantos Grammy venceu Michael Jackson numa única noite, na cerimónia de 1984, com o álbum \"Thriller\"?","answer":8,"unit":"prémios Grammy","tolerance":1},
+{"q":"Quantos Grammy venceu Billie Eilish na cerimónia de 2020, incluindo os quatro principais prémios da noite?","answer":5,"unit":"prémios Grammy","tolerance":1},
+{"q":"Quantos prémios Grammy tinha Taylor Swift acumulado até início de 2024, ao todo?","answer":14,"unit":"prémios Grammy","tolerance":2},
+{"q":"Quantos Grammy venceu Adele numa única noite, na cerimónia de 2012, com o álbum \"21\"?","answer":6,"unit":"prémios Grammy","tolerance":1},
+{"q":"Que idade tinha Billie Eilish quando se tornou a mais jovem vencedora do Grammy de Álbum do Ano, em 2020?","answer":18,"unit":"anos","tolerance":2},
+{"q":"Quantos milhões de cópias vendeu, aproximadamente, o álbum \"Thriller\" de Michael Jackson em todo o mundo?","answer":70,"unit":"milhões de cópias","tolerance":10},
+{"q":"Quantos milhões de cópias vendeu, aproximadamente, o álbum \"21\" de Adele em todo o mundo?","answer":31,"unit":"milhões de cópias","tolerance":5},
+{"q":"Quantos milhões de cópias vendeu, aproximadamente, o álbum \"Back in Black\" dos AC/DC, lançado em 1980?","answer":50,"unit":"milhões de cópias","tolerance":8},
+{"q":"Quantos milhões de cópias vendeu, aproximadamente, a banda sonora do filme \"The Bodyguard\" (1992), com Whitney Houston?","answer":45,"unit":"milhões de cópias","tolerance":8},
+{"q":"Que idade tinha Leonardo DiCaprio quando venceu o seu primeiro Óscar, em 2016?","answer":41,"unit":"anos","tolerance":2},
+{"q":"Que idade tinha Kate Winslet quando o filme \"Titanic\" estreou nos cinemas, em 1997?","answer":22,"unit":"anos","tolerance":2},
+{"q":"Que idade tinha Rihanna quando atuou no intervalo do Super Bowl, em 2023?","answer":34,"unit":"anos","tolerance":2},
+{"q":"Que idade tinha Whitney Houston quando morreu, em 2012?","answer":48,"unit":"anos","tolerance":3},
+{"q":"Que idade tinha Freddie Mercury quando morreu, em 1991?","answer":45,"unit":"anos","tolerance":3},
+{"q":"Quantos milhões de dólares arrecadou a Eras Tour de Taylor Swift no total, tornando-se a primeira digressão de sempre a ultrapassar essa marca, aproximadamente?","answer":2200,"unit":"milhões de dólares","tolerance":200},
+{"q":"Quantos milhões de dólares arrecadou a digressão de despedida de Elton John, \"Farewell Yellow Brick Road\", tornando-se a mais lucrativa de sempre, aproximadamente?","answer":939,"unit":"milhões de dólares","tolerance":80},
+{"q":"Quantos milhões de cópias vendeu, aproximadamente, o álbum \"Bad\" de Michael Jackson, lançado em 1987?","answer":45,"unit":"milhões de cópias","tolerance":8},
+{"q":"Qual é, aproximadamente, a população mundial atual (em mil milhões de pessoas)?","answer":8.2,"unit":"mil milhões","tolerance":0.3},
+{"q":"Qual é, aproximadamente, a população da China (em mil milhões de habitantes)?","answer":1.41,"unit":"mil milhões","tolerance":0.1},
+{"q":"Qual é, aproximadamente, a população da Índia, o país mais populoso do mundo (em mil milhões de habitantes)?","answer":1.45,"unit":"mil milhões","tolerance":0.1},
+{"q":"Qual é, aproximadamente, a população dos Estados Unidos da América (em milhões de habitantes)?","answer":337,"unit":"milhões","tolerance":20},
+{"q":"Qual é, aproximadamente, a população do Brasil (em milhões de habitantes)?","answer":212.6,"unit":"milhões","tolerance":15},
+{"q":"Qual é, aproximadamente, a população residente em Portugal (em milhões de habitantes)?","answer":10.7,"unit":"milhões","tolerance":1},
+{"q":"Qual é, aproximadamente, a população da Alemanha (em milhões de habitantes)?","answer":84.7,"unit":"milhões","tolerance":5},
+{"q":"Qual é, aproximadamente, a população de França (em milhões de habitantes)?","answer":68.4,"unit":"milhões","tolerance":5},
+{"q":"Qual é, aproximadamente, a população de Espanha (em milhões de habitantes)?","answer":48.6,"unit":"milhões","tolerance":4},
+{"q":"Qual é, aproximadamente, a população do Japão (em milhões de habitantes)?","answer":123.8,"unit":"milhões","tolerance":8},
+{"q":"Quantos habitantes tem, aproximadamente, o concelho de Lisboa?","answer":550000,"unit":"habitantes","tolerance":60000},
+{"q":"Quantos habitantes tem, aproximadamente, o concelho do Porto?","answer":240000,"unit":"habitantes","tolerance":30000},
+{"q":"Qual é o valor do salário mínimo nacional em Portugal, aproximadamente (em euros por mês)?","answer":920,"unit":"€","tolerance":40},
+{"q":"Qual é, aproximadamente, o salário mínimo mensal em Espanha (em euros)?","answer":1184,"unit":"€","tolerance":100},
+{"q":"Qual é, aproximadamente, o valor do salário mínimo por hora na Alemanha (em euros)?","answer":13.9,"unit":"€/hora","tolerance":1.5},
+{"q":"Qual é, aproximadamente, o salário mínimo mensal em França, o SMIC bruto (em euros)?","answer":1802,"unit":"€","tolerance":100},
+{"q":"Qual foi, aproximadamente, a taxa de desemprego em Portugal no final de 2025 (em percentagem)?","answer":6,"unit":"%","tolerance":1.5},
+{"q":"Qual foi, aproximadamente, a taxa de inflação em Portugal em 2025 (em percentagem)?","answer":2.3,"unit":"%","tolerance":1},
+{"q":"Qual é, aproximadamente, o PIB per capita de Portugal (em euros por habitante)?","answer":25500,"unit":"€","tolerance":3500},
+{"q":"Qual é, aproximadamente, o valor total do PIB de Portugal (em milhares de milhões de euros)?","answer":280,"unit":"mil milhões €","tolerance":40},
+{"q":"Qual é, aproximadamente, o salário médio líquido mensal em Portugal (em euros)?","answer":1280,"unit":"€","tolerance":200},
+{"q":"Quantos feriados nacionais tem Portugal por ano?","answer":13,"unit":"feriados","tolerance":1},
+{"q":"Quantos concelhos (municípios) existem em Portugal?","answer":308,"unit":"concelhos","tolerance":15},
+{"q":"Quantos distritos tem Portugal continental?","answer":18,"unit":"distritos","tolerance":2},
+{"q":"Qual é, em Portugal, a taxa normal de IVA (em percentagem)?","answer":23,"unit":"%","tolerance":1},
+{"q":"Qual é, aproximadamente, a renda média mensal de um apartamento T1 em Lisboa (em euros)?","answer":1150,"unit":"€","tolerance":250},
+{"q":"Quantos milhões de turistas estrangeiros visitaram Portugal em 2024, aproximadamente?","answer":29,"unit":"milhões","tolerance":4},
+{"q":"Qual é, aproximadamente, o preço médio de um litro de gasolina em Portugal atualmente (em euros)?","answer":1.9,"unit":"€","tolerance":0.15},
+{"q":"Qual é, aproximadamente, o preço médio de um litro de leite num supermercado em Portugal (em euros)?","answer":0.85,"unit":"€","tolerance":0.2},
+{"q":"Quanto custa, em média, uma bica (café expresso) ao balcão num café em Portugal (em euros)?","answer":0.8,"unit":"€","tolerance":0.25},
+{"q":"Quanto custa, aproximadamente, o passe Navegante Municipal em Lisboa (em euros por mês)?","answer":30,"unit":"€","tolerance":5},
+{"q":"Quanto custa, aproximadamente, um bilhete simples de metro em Lisboa (em euros)?","answer":1.65,"unit":"€","tolerance":0.3},
+{"q":"Quanto custa, em média, uma imperial (fino) de cerveja ao balcão num café em Portugal (em euros)?","answer":1.3,"unit":"€","tolerance":0.4},
+{"q":"Quanto custa, aproximadamente, a mensalidade do plano standard da Netflix em Portugal (em euros)?","answer":12.99,"unit":"€","tolerance":2},
+{"q":"Quantos litros de vinho consome, em média, cada português por ano?","answer":50,"unit":"litros","tolerance":15},
+{"q":"Qual é, aproximadamente, a esperança média de vida em Portugal (em anos)?","answer":81.5,"unit":"anos","tolerance":2},
+{"q":"Que percentagem dos portugueses, aproximadamente, vive em casa própria?","answer":72,"unit":"%","tolerance":8},
+{"q":"Quantas calorias tem, em média, um pastel de nata?","answer":300,"unit":"kcal","tolerance":60},
+{"q":"Quantas calorias tem, em média, uma francesinha?","answer":1300,"unit":"kcal","tolerance":400},
+{"q":"Quantas calorias tem, em média, uma lata de Coca-Cola de 330 ml?","answer":139,"unit":"kcal","tolerance":25},
+{"q":"Quantas calorias tem, em média, uma banana?","answer":90,"unit":"kcal","tolerance":20},
+{"q":"Quantas calorias tem, em média, uma maçã?","answer":80,"unit":"kcal","tolerance":20},
+{"q":"Quantas calorias tem, em média, uma fatia de pizza margherita?","answer":270,"unit":"kcal","tolerance":60},
+{"q":"Quantas calorias tem, em média, um Big Mac?","answer":550,"unit":"kcal","tolerance":80},
+{"q":"Quantas calorias tem, em média, um ovo cozido?","answer":78,"unit":"kcal","tolerance":15},
+{"q":"Quantos ossos tem, em média, o esqueleto de um ser humano adulto?","answer":206,"unit":"ossos","tolerance":10},
+{"q":"Quantos litros de água se recomenda, em média, beber por dia?","answer":2,"unit":"litros","tolerance":0.5},
+{"q":"Quantas horas de sono são recomendadas, em média, por noite a um adulto?","answer":8,"unit":"horas","tolerance":1},
+{"q":"Quantos passos por dia são recomendados, em média, para uma vida ativa e saudável?","answer":10000,"unit":"passos","tolerance":2000},
+{"q":"Qual é, aproximadamente, a área total de Portugal, incluindo os arquipélagos dos Açores e da Madeira (em km²)?","answer":92212,"unit":"km²","tolerance":5000},
+{"q":"Qual é, aproximadamente, a densidade populacional de Portugal (em habitantes por km²)?","answer":115,"unit":"habitantes/km²","tolerance":15},
+{"q":"Qual é, aproximadamente, a distância por estrada entre Lisboa e o Porto (em km)?","answer":314,"unit":"km","tolerance":30},
+{"q":"Quantas ilhas tem o arquipélago dos Açores?","answer":9,"unit":"ilhas","tolerance":1}
+];
+  function getClosestPool() { return CLOSEST_QUESTIONS; }
+
   /* ---------------------------- Emojis: memoria ---------------------------- */
   var MEMORY_EMOJIS = ['🏖️', '🌊', '🐚', '☀️', '🩴', '🦀', '🐬', '⛵', '🕶️', '🍦', '🐙', '⭐', '🌴', '🐠', '⚓', '🦈'];
 
@@ -4610,6 +4960,7 @@ p { line-height: 1.4; }
     { id: 'anagram', name: 'Anagrama', emoji: '🔤', desc: 'Reordena as letras para formar a palavra.' },
     { id: 'quiz', name: 'Quiz de Praia', emoji: '🧠', desc: 'Responde a perguntas sobre praia e mar.' },
     { id: 'memory', name: 'Jogo da Memoria', emoji: '🃏', desc: 'Encontra todos os pares de cartas.' },
+    { id: 'closest', name: 'O Mais Proximo', emoji: '🧮', desc: 'Adivinha o numero certo - ganhas mais pontos quanto mais perto ficares.' },
   ];
   function gameById(id) { for (var i = 0; i < GAMES.length; i++) if (GAMES[i].id === id) return GAMES[i]; return null; }
 
@@ -4622,6 +4973,7 @@ p { line-height: 1.4; }
     hangman: { facil: { maxWrong: 8, par: 50 }, normal: { maxWrong: 7, par: 80 }, dificil: { maxWrong: 6, par: 110 } },
     anagram: { facil: { maxLen: 7, par: 35 }, normal: { maxLen: 9, par: 55 }, dificil: { maxLen: 99, par: 80 } },
     memory: { facil: { pairs: 6, par: 55 }, normal: { pairs: 8, par: 95 }, dificil: { pairs: 10, par: 145 } },
+    closest: { facil: { n: 5, par: 70, perQ: 25 }, normal: { n: 6, par: 95, perQ: 20 }, dificil: { n: 8, par: 130, perQ: 15 } },
   };
   function computeScore(gameId, difficulty, accuracy, timeSeconds, abandoned) {
     var par = DIFF_PARAMS[gameId][difficulty].par;
@@ -5368,8 +5720,114 @@ p { line-height: 1.4; }
     return { giveUp: function () { finalize(true); } };
   }
 
+  /* ============================= JOGO: O MAIS PROXIMO ============================= */
+  function formatGuessNumber(n) {
+    try { return n.toLocaleString('pt-PT', { maximumFractionDigits: 2 }); } catch (e) { return String(n); }
+  }
+  function mountClosest(container, actionsEl, difficulty, rng, topics, onFinish) {
+    var params = DIFF_PARAMS.closest[difficulty];
+    var pool = getClosestPool();
+    var questions = pick(pool, Math.min(params.n, pool.length), rng);
+    var idx = 0, finished = false, answered = false, qTimer = null, timeLeft = 0, accSum = 0;
+
+    var hud = el('div', 'hud');
+    var progressPill = el('div', 'pill');
+    var timePill = el('div', 'pill');
+    hud.appendChild(progressPill); hud.appendChild(timePill);
+    container.appendChild(hud);
+
+    var qEl = el('div', 'quiz-question');
+    container.appendChild(qEl);
+    var unitNote = el('div', 'small-note closest-unit');
+    container.appendChild(unitNote);
+
+    var inputRow = el('div', 'closest-input-row');
+    var guessInput = document.createElement('input');
+    guessInput.type = 'number';
+    guessInput.step = 'any';
+    guessInput.inputMode = 'decimal';
+    guessInput.className = 'text-input closest-input';
+    guessInput.placeholder = 'O teu palpite';
+    inputRow.appendChild(guessInput);
+    var confirmBtn = el('button', 'btn btn-primary', 'Confirmar');
+    inputRow.appendChild(confirmBtn);
+    container.appendChild(inputRow);
+
+    var feedbackEl = el('div', 'closest-feedback');
+    container.appendChild(feedbackEl);
+
+    function renderQuestion() {
+      answered = false;
+      clearEl(feedbackEl);
+      feedbackEl.classList.remove('show');
+      var q = questions[idx];
+      progressPill.textContent = 'Pergunta ' + (idx + 1) + '/' + questions.length;
+      qEl.textContent = q.q;
+      unitNote.textContent = q.unit ? ('Responde em ' + q.unit) : 'Responde só com o número';
+      guessInput.value = '';
+      guessInput.disabled = false;
+      confirmBtn.disabled = false;
+      setTimeout(function () { guessInput.focus(); }, 0);
+      timeLeft = params.perQ;
+      timePill.textContent = '⏱ ' + timeLeft + 's';
+      clearInterval(qTimer);
+      qTimer = setInterval(function () {
+        timeLeft--;
+        timePill.textContent = '⏱ ' + Math.max(0, timeLeft) + 's';
+        if (timeLeft <= 0) { clearInterval(qTimer); submitGuess(true); }
+      }, 1000);
+    }
+
+    function submitGuess(timedOut) {
+      if (answered || finished) return;
+      answered = true;
+      clearInterval(qTimer);
+      guessInput.disabled = true;
+      confirmBtn.disabled = true;
+      var q = questions[idx];
+      var raw = parseFloat(String(guessInput.value || '').replace(',', '.'));
+      var hasGuess = !timedOut && isFinite(raw);
+      var diff = hasGuess ? Math.abs(raw - q.answer) : Infinity;
+      var acc = hasGuess ? clamp(1 - diff / (q.tolerance * 3), 0, 1) : 0;
+      accSum += acc;
+      if (acc > 0.66) vibrate(10); else if (hasGuess) vibrate(30);
+
+      clearEl(feedbackEl);
+      var unitSuffix = q.unit ? (' ' + q.unit) : '';
+      feedbackEl.appendChild(el('div', 'closest-answer', 'Resposta certa: ' + formatGuessNumber(q.answer) + unitSuffix));
+      if (hasGuess) {
+        feedbackEl.appendChild(el('div', 'closest-guess', 'O teu palpite: ' + formatGuessNumber(raw) + unitSuffix + ' (diferença: ' + formatGuessNumber(diff) + unitSuffix + ')'));
+      } else {
+        feedbackEl.appendChild(el('div', 'closest-guess', 'Não respondeste a tempo.'));
+      }
+      var badgeCls = acc > 0.8 ? 'great' : (acc > 0.4 ? 'ok' : 'bad');
+      var badgeText = acc > 0.8 ? '🎯 Muito perto!' : (acc > 0.4 ? '👍 Nada mau' : '😬 Longe');
+      feedbackEl.appendChild(el('div', 'closest-badge ' + badgeCls, badgeText));
+      feedbackEl.classList.add('show');
+
+      setTimeout(function () {
+        idx++;
+        if (idx >= questions.length) finalize(false); else renderQuestion();
+      }, 1400);
+    }
+
+    confirmBtn.addEventListener('click', function () { submitGuess(false); });
+    guessInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); submitGuess(false); } });
+
+    renderQuestion();
+
+    function finalize(abandoned) {
+      if (finished) return;
+      finished = true;
+      clearInterval(qTimer);
+      var accuracy = questions.length ? accSum / questions.length : 1;
+      onFinish({ accuracy: accuracy, abandoned: abandoned });
+    }
+    return { giveUp: function () { finalize(true); } };
+  }
+
   /* ============================= APP / ROTAS ============================= */
-  var MOUNT_FNS = { sudoku: mountSudoku, wordsearch: mountWordSearch, crossword: mountCrossword, hangman: mountHangman, anagram: mountAnagram, quiz: mountQuiz, memory: mountMemory };
+  var MOUNT_FNS = { sudoku: mountSudoku, wordsearch: mountWordSearch, crossword: mountCrossword, hangman: mountHangman, anagram: mountAnagram, quiz: mountQuiz, memory: mountMemory, closest: mountClosest };
 
   var App = {
     screen: 'home', runConfig: null, draftConfig: null, queue: [], results: [],
@@ -6175,8 +6633,8 @@ p { line-height: 1.4; }
 
   window.__praiaCore = {
     RAW_WORDS: RAW_WORDS, CROSSWORD_ENTRIES: getCrosswordPool('misto'), QUIZ_BANK: QUIZ_BANK, GAMES: GAMES,
-    WORD_TOPICS: WORD_TOPICS, QUIZ_TOPICS: QUIZ_TOPICS, CATEGORIES: CATEGORIES,
-    getWordPool: getWordPool, getQuizPool: getQuizPool, getCrosswordPool: getCrosswordPool,
+    WORD_TOPICS: WORD_TOPICS, QUIZ_TOPICS: QUIZ_TOPICS, CATEGORIES: CATEGORIES, CLOSEST_QUESTIONS: CLOSEST_QUESTIONS,
+    getWordPool: getWordPool, getQuizPool: getQuizPool, getCrosswordPool: getCrosswordPool, getClosestPool: getClosestPool,
     allCategoryIds: allCategoryIds, normalizeTopics: normalizeTopics, isMistoSelection: isMistoSelection, topicsLabel: topicsLabel,
     generateSudoku: generateSudoku, generateWordSearch: generateWordSearch, generateCrossword: generateCrossword,
     toGrid: toGrid, shuffle: shuffle, formatTime: formatTime, clamp: clamp, computeScore: computeScore,
